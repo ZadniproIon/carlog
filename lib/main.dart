@@ -133,6 +133,93 @@ class _HomeShellState extends State<HomeShell> {
     });
   }
 
+  Future<ExpenseInputMode?> _showExpenseInputModeSheet() {
+    const modes = <ExpenseInputMode>[
+      ExpenseInputMode.voice,
+      ExpenseInputMode.text,
+      ExpenseInputMode.manual,
+    ];
+
+    String modeTitle(ExpenseInputMode mode) {
+      switch (mode) {
+        case ExpenseInputMode.voice:
+          return 'Voice';
+        case ExpenseInputMode.text:
+          return 'Text';
+        case ExpenseInputMode.manual:
+          return 'Manual';
+      }
+    }
+
+    String modeSubtitle(ExpenseInputMode mode) {
+      switch (mode) {
+        case ExpenseInputMode.voice:
+          return 'Dictate details, then review the form.';
+        case ExpenseInputMode.text:
+          return 'Type details, then review the form.';
+        case ExpenseInputMode.manual:
+          return 'Fill the form directly.';
+      }
+    }
+
+    IconData modeIcon(ExpenseInputMode mode) {
+      switch (mode) {
+        case ExpenseInputMode.voice:
+          return Icons.mic;
+        case ExpenseInputMode.text:
+          return Icons.text_fields;
+        case ExpenseInputMode.manual:
+          return Icons.edit_note;
+      }
+    }
+
+    return showModalBottomSheet<ExpenseInputMode>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Choose input method',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Select one option to continue.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 12),
+                ...modes.map((mode) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                        ),
+                      ),
+                      leading: Icon(modeIcon(mode)),
+                      title: Text(modeTitle(mode)),
+                      subtitle: Text(modeSubtitle(mode)),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.of(context).pop(mode),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pages = <Widget>[
@@ -160,9 +247,20 @@ class _HomeShellState extends State<HomeShell> {
     if (_selectedIndex == 0 || _selectedIndex == 1) {
       fab = FloatingActionButton.extended(
         onPressed: () async {
+          final mode = await _showExpenseInputModeSheet();
+          if (mode == null) {
+            return;
+          }
+          if (!context.mounted) {
+            return;
+          }
+
           final newExpense = await Navigator.of(context).push<CarExpense>(
             MaterialPageRoute(
-              builder: (context) => AddExpenseScreen(vehicles: _vehicles),
+              builder: (context) => AddExpenseScreen(
+                vehicles: _vehicles,
+                initialMode: mode,
+              ),
             ),
           );
           if (newExpense != null) {
