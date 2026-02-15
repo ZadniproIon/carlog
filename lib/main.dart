@@ -41,7 +41,7 @@ class _MyAppState extends State<MyApp> {
     );
 
     return MaterialApp(
-      title: 'Smart Car Expenses',
+      title: 'CarLog',
       debugShowCheckedModeBanner: false,
       themeMode: _themeMode,
       theme: ThemeData(

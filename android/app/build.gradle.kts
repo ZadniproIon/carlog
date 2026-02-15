@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.tps_atestarea_2_app"
+    namespace = "com.example.carlog"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -22,7 +22,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.tps_atestarea_2_app"
+        applicationId = "com.example.carlog"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

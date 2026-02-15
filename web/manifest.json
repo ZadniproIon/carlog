@@ -1,6 +1,6 @@
 {
-    "name": "tps_atestarea_2_app",
-    "short_name": "tps_atestarea_2_app",
+    "name": "CarLog",
+    "short_name": "CarLog",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

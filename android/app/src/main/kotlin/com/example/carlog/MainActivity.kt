@@ -1,4 +1,4 @@
-package com.example.tps_atestarea_2_app
+package com.example.carlog
 
 import io.flutter.embedding.android.FlutterActivity
 

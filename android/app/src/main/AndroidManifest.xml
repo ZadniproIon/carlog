@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
-        android:label="tps_atestarea_2_app"
+        android:label="CarLog"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
