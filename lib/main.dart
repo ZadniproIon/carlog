@@ -1,12 +1,13 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import 'models.dart';
 import 'mock_data.dart';
 import 'screens/add_expense_screen.dart';
+import 'screens/add_vehicle_screen.dart';
+import 'screens/auth_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/expenses_screen.dart';
 import 'screens/profile_screen.dart';
-import 'screens/add_vehicle_screen.dart';
 import 'screens/vehicles_screen.dart';
 import 'services/notification_service.dart';
 
@@ -14,6 +15,18 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationService.init();
   runApp(const MyApp());
+}
+
+class _StoredAccount {
+  const _StoredAccount({
+    required this.name,
+    required this.email,
+    required this.password,
+  });
+
+  final String name;
+  final String email;
+  final String password;
 }
 
 class MyApp extends StatefulWidget {
@@ -25,10 +38,76 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   ThemeMode _themeMode = ThemeMode.system;
+  MockAuthUser? _currentUser;
 
-  void _onThemeChanged(bool isDark) {
+  final Map<String, _StoredAccount> _accounts = {
+    'driver@carlog.app': const _StoredAccount(
+      name: 'Demo Driver',
+      email: 'driver@carlog.app',
+      password: 'demo1234',
+    ),
+  };
+
+  void _onThemeModeChanged(ThemeMode mode) {
+    setState(() => _themeMode = mode);
+  }
+
+  Future<String?> _handleLogin(String email, String password) async {
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+
+    final key = email.toLowerCase();
+    final account = _accounts[key];
+    if (account == null || account.password != password) {
+      return 'Invalid email or password.';
+    }
+
     setState(() {
-      _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
+      _currentUser = MockAuthUser(
+        name: account.name,
+        email: account.email,
+      );
+    });
+
+    return null;
+  }
+
+  Future<String?> _handleSignUp(
+    String name,
+    String email,
+    String password,
+  ) async {
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+
+    final key = email.toLowerCase();
+    if (_accounts.containsKey(key)) {
+      return 'An account with this email already exists.';
+    }
+
+    _accounts[key] = _StoredAccount(
+      name: name,
+      email: email,
+      password: password,
+    );
+
+    setState(() {
+      _currentUser = MockAuthUser(
+        name: name,
+        email: email,
+      );
+    });
+
+    return null;
+  }
+
+  void _enterGuestMode() {
+    setState(() {
+      _currentUser = MockAuthUser.guest();
+    });
+  }
+
+  void _logout() {
+    setState(() {
+      _currentUser = null;
     });
   }
 
@@ -85,10 +164,19 @@ class _MyAppState extends State<MyApp> {
           ),
         ),
       ),
-      home: HomeShell(
-        isDarkMode: _themeMode == ThemeMode.dark,
-        onThemeChanged: _onThemeChanged,
-      ),
+      home: _currentUser == null
+          ? AuthScreen(
+              onLogin: _handleLogin,
+              onSignUp: _handleSignUp,
+              onEnterGuest: _enterGuestMode,
+            )
+          : HomeShell(
+              key: ValueKey<String>(_currentUser!.email),
+              themeMode: _themeMode,
+              onThemeModeChanged: _onThemeModeChanged,
+              currentUser: _currentUser!,
+              onLogout: _logout,
+            ),
     );
   }
 }
@@ -96,12 +184,16 @@ class _MyAppState extends State<MyApp> {
 class HomeShell extends StatefulWidget {
   const HomeShell({
     super.key,
-    required this.isDarkMode,
-    required this.onThemeChanged,
+    required this.themeMode,
+    required this.onThemeModeChanged,
+    required this.currentUser,
+    required this.onLogout,
   });
 
-  final bool isDarkMode;
-  final ValueChanged<bool> onThemeChanged;
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode> onThemeModeChanged;
+  final MockAuthUser currentUser;
+  final VoidCallback onLogout;
 
   @override
   State<HomeShell> createState() => _HomeShellState();
@@ -238,8 +330,10 @@ class _HomeShellState extends State<HomeShell> {
         reminders: _reminders,
       ),
       ProfileScreen(
-        isDarkMode: widget.isDarkMode,
-        onThemeChanged: widget.onThemeChanged,
+        user: widget.currentUser,
+        themeMode: widget.themeMode,
+        onThemeModeChanged: widget.onThemeModeChanged,
+        onLogout: widget.onLogout,
       ),
     ];
 

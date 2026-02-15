@@ -97,3 +97,23 @@ class MaintenanceReminder {
   final int? dueMileage;
   final String vehicleId;
 }
+
+class MockAuthUser {
+  const MockAuthUser({
+    required this.name,
+    required this.email,
+    this.isGuest = false,
+  });
+
+  final String name;
+  final String email;
+  final bool isGuest;
+
+  factory MockAuthUser.guest() {
+    return const MockAuthUser(
+      name: 'Guest Driver',
+      email: 'guest@carlog.local',
+      isGuest: true,
+    );
+  }
+}
