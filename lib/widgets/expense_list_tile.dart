@@ -7,10 +7,12 @@ class ExpenseListTile extends StatelessWidget {
     super.key,
     required this.expense,
     required this.vehicle,
+    this.margin = const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
   });
 
   final CarExpense expense;
   final Vehicle? vehicle;
+  final EdgeInsetsGeometry margin;
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +20,7 @@ class ExpenseListTile extends StatelessWidget {
     final palette = _categoryPalette(expense.category, scheme);
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      margin: margin,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 0,
       child: ListTile(

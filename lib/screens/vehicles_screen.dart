@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../models.dart';
 import '../widgets/category_chart.dart';
@@ -11,17 +11,26 @@ class VehiclesScreen extends StatelessWidget {
     required this.vehicles,
     required this.expenses,
     required this.reminders,
+    required this.onAddVehicle,
   });
 
   final List<Vehicle> vehicles;
   final List<CarExpense> expenses;
   final List<MaintenanceReminder> reminders;
+  final VoidCallback onAddVehicle;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Vehicles'),
+        actions: [
+          IconButton(
+            tooltip: 'Add vehicle',
+            onPressed: onAddVehicle,
+            icon: const Icon(Icons.add),
+          ),
+        ],
       ),
       body: ListView.builder(
         padding: const EdgeInsets.all(16),
@@ -76,10 +85,7 @@ class VehiclesScreen extends StatelessWidget {
                           label: 'Year ${vehicle.year}',
                           icon: Icons.calendar_today_outlined,
                         ),
-                        _InfoChip(
-                          label: vehicle.engine,
-                          icon: Icons.speed,
-                        ),
+                        _InfoChip(label: vehicle.engine, icon: Icons.speed),
                       ],
                     ),
                   ],
@@ -94,10 +100,7 @@ class VehiclesScreen extends StatelessWidget {
 }
 
 class _InfoChip extends StatelessWidget {
-  const _InfoChip({
-    required this.label,
-    required this.icon,
-  });
+  const _InfoChip({required this.label, required this.icon});
 
   final String label;
   final IconData icon;
@@ -106,15 +109,9 @@ class _InfoChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Chip(
-      avatar: Icon(
-        icon,
-        size: 18,
-        color: scheme.primary,
-      ),
+      avatar: Icon(icon, size: 18, color: scheme.primary),
       label: Text(label),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(100),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(100)),
     );
   }
 }
@@ -133,10 +130,12 @@ class VehicleDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final vehicleExpenses =
-        expenses.where((e) => e.vehicleId == vehicle.id).toList();
-    final vehicleReminders =
-        reminders.where((r) => r.vehicleId == vehicle.id).toList();
+    final vehicleExpenses = expenses
+        .where((e) => e.vehicleId == vehicle.id)
+        .toList();
+    final vehicleReminders = reminders
+        .where((r) => r.vehicleId == vehicle.id)
+        .toList();
 
     final totalSpent = vehicleExpenses.fold<double>(
       0,
@@ -144,13 +143,13 @@ class VehicleDetailScreen extends StatelessWidget {
     );
 
     vehicleExpenses.sort((a, b) => b.date.compareTo(a.date));
-    final lastExpense =
-        vehicleExpenses.isNotEmpty ? vehicleExpenses.first : null;
+    final lastExpense = vehicleExpenses.isNotEmpty
+        ? vehicleExpenses.first
+        : null;
 
     final categoryTotals = <ExpenseCategory, double>{};
     for (final e in vehicleExpenses) {
-      categoryTotals[e.category] =
-          (categoryTotals[e.category] ?? 0) + e.amount;
+      categoryTotals[e.category] = (categoryTotals[e.category] ?? 0) + e.amount;
     }
 
     final now = DateTime.now();
@@ -161,9 +160,7 @@ class VehicleDetailScreen extends StatelessWidget {
     final aiInsight = _getVehicleAiInsight(vehicle);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('${vehicle.displayName} · ${vehicle.year}'),
-      ),
+      appBar: AppBar(title: Text('${vehicle.displayName} · ${vehicle.year}')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Column(
@@ -195,7 +192,10 @@ class VehicleDetailScreen extends StatelessWidget {
                 children: [
                   _SpecRow(label: 'Year', value: '${vehicle.year}'),
                   _SpecRow(label: 'Engine', value: vehicle.engine),
-                  _SpecRow(label: 'Current mileage', value: '${vehicle.mileage} km'),
+                  _SpecRow(
+                    label: 'Current mileage',
+                    value: '${vehicle.mileage} km',
+                  ),
                   _SpecRow(label: 'VIN', value: vehicle.vin),
                 ],
               ),
@@ -260,9 +260,9 @@ class VehicleDetailScreen extends StatelessWidget {
                   Text(
                     'AI-generated demo insight. Verify with owner manual and service documentation.',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontStyle: FontStyle.italic,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                      fontStyle: FontStyle.italic,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -314,12 +314,7 @@ class VehicleDetailScreen extends StatelessWidget {
             else
               Column(
                 children: vehicleExpenses
-                    .map(
-                      (e) => ExpenseListTile(
-                        expense: e,
-                        vehicle: vehicle,
-                      ),
-                    )
+                    .map((e) => ExpenseListTile(expense: e, vehicle: vehicle))
                     .toList(),
               ),
             const SizedBox(height: 24),
@@ -401,9 +396,7 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -413,10 +406,7 @@ class _SectionCard extends StatelessWidget {
               children: [
                 Icon(icon),
                 const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
+                Text(title, style: Theme.of(context).textTheme.titleMedium),
               ],
             ),
             const SizedBox(height: 12),
@@ -429,10 +419,7 @@ class _SectionCard extends StatelessWidget {
 }
 
 class _SpecRow extends StatelessWidget {
-  const _SpecRow({
-    required this.label,
-    required this.value,
-  });
+  const _SpecRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -449,16 +436,16 @@ class _SpecRow extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           Expanded(
             child: SelectableText(
               value,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -468,19 +455,14 @@ class _SpecRow extends StatelessWidget {
 }
 
 class _VehicleAiInsight {
-  const _VehicleAiInsight({
-    required this.summary,
-    required this.bullets,
-  });
+  const _VehicleAiInsight({required this.summary, required this.bullets});
 
   final String summary;
   final List<String> bullets;
 }
 
 class _VehicleMaintenanceList extends StatelessWidget {
-  const _VehicleMaintenanceList({
-    required this.reminders,
-  });
+  const _VehicleMaintenanceList({required this.reminders});
 
   final List<MaintenanceReminder> reminders;
 
@@ -517,4 +499,3 @@ class _VehicleMaintenanceList extends StatelessWidget {
     return 'No due information';
   }
 }
-

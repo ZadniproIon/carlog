@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import 'models.dart';
 import 'mock_data.dart';
@@ -62,10 +62,7 @@ class _MyAppState extends State<MyApp> {
     }
 
     setState(() {
-      _currentUser = MockAuthUser(
-        name: account.name,
-        email: account.email,
-      );
+      _currentUser = MockAuthUser(name: account.name, email: account.email);
     });
 
     return null;
@@ -90,10 +87,7 @@ class _MyAppState extends State<MyApp> {
     );
 
     setState(() {
-      _currentUser = MockAuthUser(
-        name: name,
-        email: email,
-      );
+      _currentUser = MockAuthUser(name: name, email: email);
     });
 
     return null;
@@ -225,6 +219,15 @@ class _HomeShellState extends State<HomeShell> {
     });
   }
 
+  Future<void> _openAddVehicleFlow() async {
+    final newVehicle = await Navigator.of(context).push<Vehicle>(
+      MaterialPageRoute(builder: (context) => const AddVehicleScreen()),
+    );
+    if (newVehicle != null) {
+      _addVehicle(newVehicle);
+    }
+  }
+
   Future<ExpenseInputMode?> _showExpenseInputModeSheet() {
     const modes = <ExpenseInputMode>[
       ExpenseInputMode.voice,
@@ -320,14 +323,12 @@ class _HomeShellState extends State<HomeShell> {
         expenses: _expenses,
         reminders: _reminders,
       ),
-      ExpensesScreen(
-        expenses: _expenses,
-        vehicles: _vehicles,
-      ),
+      ExpensesScreen(expenses: _expenses, vehicles: _vehicles),
       VehiclesScreen(
         vehicles: _vehicles,
         expenses: _expenses,
         reminders: _reminders,
+        onAddVehicle: _openAddVehicleFlow,
       ),
       ProfileScreen(
         user: widget.currentUser,
@@ -339,7 +340,7 @@ class _HomeShellState extends State<HomeShell> {
 
     Widget? fab;
     if (_selectedIndex == 0 || _selectedIndex == 1) {
-      fab = FloatingActionButton.extended(
+      fab = FloatingActionButton(
         onPressed: () async {
           final mode = await _showExpenseInputModeSheet();
           if (mode == null) {
@@ -351,33 +352,15 @@ class _HomeShellState extends State<HomeShell> {
 
           final newExpense = await Navigator.of(context).push<CarExpense>(
             MaterialPageRoute(
-              builder: (context) => AddExpenseScreen(
-                vehicles: _vehicles,
-                initialMode: mode,
-              ),
+              builder: (context) =>
+                  AddExpenseScreen(vehicles: _vehicles, initialMode: mode),
             ),
           );
           if (newExpense != null) {
             _addExpense(newExpense);
           }
         },
-        label: const Text('Add expense'),
-        icon: const Icon(Icons.add),
-      );
-    } else if (_selectedIndex == 2) {
-      fab = FloatingActionButton.extended(
-        onPressed: () async {
-          final newVehicle = await Navigator.of(context).push<Vehicle>(
-            MaterialPageRoute(
-              builder: (context) => const AddVehicleScreen(),
-            ),
-          );
-          if (newVehicle != null) {
-            _addVehicle(newVehicle);
-          }
-        },
-        label: const Text('Add vehicle'),
-        icon: const Icon(Icons.directions_car),
+        child: const Icon(Icons.add),
       );
     }
 
