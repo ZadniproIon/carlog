@@ -101,6 +101,35 @@ class CarlogRepository {
         .set(vehicle.toMap(), SetOptions(merge: true));
   }
 
+  Future<void> deleteVehicle({
+    required MockAuthUser user,
+    required String vehicleId,
+  }) async {
+    if (!_canUseCloud(user)) {
+      return;
+    }
+
+    final userRef = _userRef(user.uid!);
+    final expensesQuery = await userRef
+        .collection('expenses')
+        .where('vehicleId', isEqualTo: vehicleId)
+        .get();
+    final remindersQuery = await userRef
+        .collection('reminders')
+        .where('vehicleId', isEqualTo: vehicleId)
+        .get();
+
+    final batch = _firestore!.batch();
+    batch.delete(userRef.collection('vehicles').doc(vehicleId));
+    for (final doc in expensesQuery.docs) {
+      batch.delete(doc.reference);
+    }
+    for (final doc in remindersQuery.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+  }
+
   Future<void> addExpense({
     required MockAuthUser user,
     required CarExpense expense,
@@ -113,6 +142,58 @@ class CarlogRepository {
         .collection('expenses')
         .doc(expense.id)
         .set(expense.toMap(), SetOptions(merge: true));
+  }
+
+  Future<void> deleteExpense({
+    required MockAuthUser user,
+    required String expenseId,
+  }) async {
+    if (!_canUseCloud(user)) {
+      return;
+    }
+
+    await _userRef(user.uid!).collection('expenses').doc(expenseId).delete();
+  }
+
+  Future<void> upsertReminder({
+    required MockAuthUser user,
+    required MaintenanceReminder reminder,
+  }) async {
+    if (!_canUseCloud(user)) {
+      return;
+    }
+
+    await _userRef(user.uid!)
+        .collection('reminders')
+        .doc(reminder.id)
+        .set(reminder.toMap(), SetOptions(merge: true));
+  }
+
+  Future<void> deleteReminder({
+    required MockAuthUser user,
+    required String reminderId,
+  }) async {
+    if (!_canUseCloud(user)) {
+      return;
+    }
+
+    await _userRef(user.uid!).collection('reminders').doc(reminderId).delete();
+  }
+
+  Future<void> updateProfile({
+    required MockAuthUser user,
+    required String name,
+    required String email,
+  }) async {
+    if (!_canUseCloud(user)) {
+      return;
+    }
+
+    await _userRef(user.uid!).set({
+      'displayName': name,
+      'email': email,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   bool _canUseCloud(MockAuthUser user) {

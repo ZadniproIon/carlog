@@ -11,6 +11,7 @@ import 'firebase_options.dart';
 import 'mock_data.dart';
 import 'models.dart';
 import 'screens/add_expense_screen.dart';
+import 'screens/add_reminder_screen.dart';
 import 'screens/add_vehicle_screen.dart';
 import 'screens/auth_screen.dart';
 import 'screens/dashboard_screen.dart';
@@ -101,6 +102,49 @@ class _MyAppState extends State<MyApp> {
 
   void _onThemeModeChanged(ThemeMode mode) {
     setState(() => _themeMode = mode);
+  }
+
+  Future<String?> _updateProfile(String name, String email) async {
+    final user = _currentUser;
+    if (user == null) {
+      return 'No active user session.';
+    }
+
+    if (user.isGuest) {
+      setState(() {
+        _currentUser = user.copyWith(name: name, email: email);
+      });
+      return null;
+    }
+
+    if (widget.firebaseEnabled) {
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser == null) {
+        return 'No Firebase session found.';
+      }
+
+      try {
+        if (firebaseUser.displayName != name) {
+          await firebaseUser.updateDisplayName(name);
+        }
+        if ((firebaseUser.email ?? '').toLowerCase() != email.toLowerCase()) {
+          await firebaseUser.verifyBeforeUpdateEmail(email);
+        }
+        await _repository.updateProfile(user: user, name: name, email: email);
+      } on FirebaseAuthException catch (error) {
+        if (error.code == 'requires-recent-login') {
+          return 'Re-login required to change email.';
+        }
+        return error.message ?? 'Failed to update profile.';
+      } catch (_) {
+        return 'Failed to update profile.';
+      }
+    }
+
+    setState(() {
+      _currentUser = user.copyWith(name: name, email: email);
+    });
+    return null;
   }
 
   Future<String?> _handleLogin(String email, String password) async {
@@ -405,6 +449,7 @@ class _MyAppState extends State<MyApp> {
               onLogout: _logout,
               repository: _repository,
               firebaseEnabled: widget.firebaseEnabled,
+              onUpdateProfile: _updateProfile,
             ),
     );
   }
@@ -419,6 +464,7 @@ class HomeShell extends StatefulWidget {
     required this.onLogout,
     required this.repository,
     required this.firebaseEnabled,
+    required this.onUpdateProfile,
   });
 
   final ThemeMode themeMode;
@@ -427,6 +473,7 @@ class HomeShell extends StatefulWidget {
   final VoidCallback onLogout;
   final CarlogRepository repository;
   final bool firebaseEnabled;
+  final Future<String?> Function(String name, String email) onUpdateProfile;
 
   @override
   State<HomeShell> createState() => _HomeShellState();
@@ -495,12 +542,61 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   void _addExpense(CarExpense expense) {
+    Vehicle? updatedVehicle;
     setState(() {
       _expenses.insert(0, expense);
+      updatedVehicle = _applyVehicleMileageFromExpense(expense);
     });
 
     if (!_demoModeEnabled) {
       unawaited(_syncExpense(expense));
+      if (updatedVehicle != null) {
+        unawaited(_syncVehicle(updatedVehicle!));
+      }
+    }
+  }
+
+  void _updateExpense(CarExpense expense) {
+    Vehicle? updatedVehicle;
+    setState(() {
+      final index = _expenses.indexWhere((item) => item.id == expense.id);
+      if (index == -1) {
+        _expenses.insert(0, expense);
+      } else {
+        _expenses[index] = expense;
+      }
+      _expenses.sort((a, b) => b.date.compareTo(a.date));
+      updatedVehicle = _applyVehicleMileageFromExpense(expense);
+    });
+
+    if (!_demoModeEnabled) {
+      unawaited(_syncExpense(expense));
+      if (updatedVehicle != null) {
+        unawaited(_syncVehicle(updatedVehicle!));
+      }
+    }
+  }
+
+  void _deleteExpense(String expenseId) {
+    setState(() {
+      _expenses.removeWhere((item) => item.id == expenseId);
+    });
+
+    if (!_demoModeEnabled) {
+      unawaited(_syncDeleteExpense(expenseId));
+    }
+  }
+
+  void _bulkDeleteExpenses(List<String> expenseIds) {
+    final ids = expenseIds.toSet();
+    setState(() {
+      _expenses.removeWhere((item) => ids.contains(item.id));
+    });
+
+    if (!_demoModeEnabled) {
+      for (final expenseId in ids) {
+        unawaited(_syncDeleteExpense(expenseId));
+      }
     }
   }
 
@@ -536,6 +632,41 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
+  Future<void> _syncDeleteExpense(String expenseId) async {
+    try {
+      await widget.repository.deleteExpense(
+        user: widget.currentUser,
+        expenseId: expenseId,
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not delete expense in cloud.')),
+      );
+      setState(() => _usingLocalData = true);
+    }
+  }
+
+  Vehicle? _applyVehicleMileageFromExpense(CarExpense expense) {
+    final vehicleIndex = _vehicles.indexWhere(
+      (vehicle) => vehicle.id == expense.vehicleId,
+    );
+    if (vehicleIndex == -1) {
+      return null;
+    }
+
+    final existingVehicle = _vehicles[vehicleIndex];
+    if (expense.mileage <= existingVehicle.mileage) {
+      return null;
+    }
+
+    final updatedVehicle = existingVehicle.copyWith(mileage: expense.mileage);
+    _vehicles[vehicleIndex] = updatedVehicle;
+    return updatedVehicle;
+  }
+
   void _addVehicle(Vehicle vehicle) {
     setState(() {
       _vehicles.add(vehicle);
@@ -543,6 +674,72 @@ class _HomeShellState extends State<HomeShell> {
 
     if (!_demoModeEnabled) {
       unawaited(_syncVehicle(vehicle));
+    }
+  }
+
+  void _updateVehicle(Vehicle vehicle) {
+    setState(() {
+      final index = _vehicles.indexWhere((item) => item.id == vehicle.id);
+      if (index == -1) {
+        _vehicles.add(vehicle);
+      } else {
+        _vehicles[index] = vehicle;
+      }
+    });
+
+    if (!_demoModeEnabled) {
+      unawaited(_syncVehicle(vehicle));
+    }
+  }
+
+  Future<void> _deleteVehicle(String vehicleId) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete vehicle?'),
+          content: const Text(
+            'This removes the vehicle and all related expenses/reminders.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true) {
+      return;
+    }
+
+    setState(() {
+      _vehicles.removeWhere((vehicle) => vehicle.id == vehicleId);
+      _expenses.removeWhere((expense) => expense.vehicleId == vehicleId);
+      _reminders.removeWhere((reminder) => reminder.vehicleId == vehicleId);
+    });
+
+    if (!_demoModeEnabled) {
+      try {
+        await widget.repository.deleteVehicle(
+          user: widget.currentUser,
+          vehicleId: vehicleId,
+        );
+      } catch (_) {
+        if (!mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not delete vehicle in cloud.')),
+        );
+        setState(() => _usingLocalData = true);
+      }
     }
   }
 
@@ -584,6 +781,117 @@ class _HomeShellState extends State<HomeShell> {
     );
     if (newVehicle != null) {
       _addVehicle(newVehicle);
+    }
+  }
+
+  Future<void> _openEditVehicleFlow(Vehicle vehicle) async {
+    final updatedVehicle = await Navigator.of(context).push<Vehicle>(
+      MaterialPageRoute(
+        builder: (context) => AddVehicleScreen(initialVehicle: vehicle),
+      ),
+    );
+    if (updatedVehicle != null) {
+      _updateVehicle(updatedVehicle);
+    }
+  }
+
+  Future<void> _openEditExpenseFlow(CarExpense expense) async {
+    final updatedExpense = await Navigator.of(context).push<CarExpense>(
+      MaterialPageRoute(
+        builder: (context) => AddExpenseScreen(
+          vehicles: _vehicles,
+          initialMode: ExpenseInputMode.manual,
+          initialExpense: expense,
+        ),
+      ),
+    );
+    if (updatedExpense != null) {
+      _updateExpense(updatedExpense);
+    }
+  }
+
+  Future<void> _openAddReminderFlow(String vehicleId) async {
+    final reminder = await Navigator.of(context).push<MaintenanceReminder>(
+      MaterialPageRoute(
+        builder: (context) => AddReminderScreen(vehicleId: vehicleId),
+      ),
+    );
+    if (reminder != null) {
+      _upsertReminder(reminder);
+    }
+  }
+
+  Future<void> _openEditReminderFlow(MaintenanceReminder reminder) async {
+    final updatedReminder = await Navigator.of(context)
+        .push<MaintenanceReminder>(
+          MaterialPageRoute(
+            builder: (context) => AddReminderScreen(
+              vehicleId: reminder.vehicleId,
+              initialReminder: reminder,
+            ),
+          ),
+        );
+    if (updatedReminder != null) {
+      _upsertReminder(updatedReminder);
+    }
+  }
+
+  void _upsertReminder(MaintenanceReminder reminder) {
+    setState(() {
+      final index = _reminders.indexWhere((item) => item.id == reminder.id);
+      if (index == -1) {
+        _reminders.add(reminder);
+      } else {
+        _reminders[index] = reminder;
+      }
+    });
+
+    if (!_demoModeEnabled) {
+      unawaited(_syncReminder(reminder));
+    }
+  }
+
+  void _deleteReminder(String reminderId) {
+    setState(() {
+      _reminders.removeWhere((item) => item.id == reminderId);
+    });
+
+    if (!_demoModeEnabled) {
+      unawaited(_syncDeleteReminder(reminderId));
+    }
+  }
+
+  Future<void> _syncReminder(MaintenanceReminder reminder) async {
+    try {
+      await widget.repository.upsertReminder(
+        user: widget.currentUser,
+        reminder: reminder,
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not sync reminder in cloud.')),
+      );
+      setState(() => _usingLocalData = true);
+    }
+  }
+
+  Future<void> _syncDeleteReminder(String reminderId) async {
+    try {
+      await widget.repository.deleteReminder(
+        user: widget.currentUser,
+        reminderId: reminderId,
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not delete reminder in cloud.')),
+      );
+      setState(() => _usingLocalData = true);
     }
   }
 
@@ -694,12 +1002,25 @@ class _HomeShellState extends State<HomeShell> {
         expenses: _expenses,
         reminders: _reminders,
       ),
-      ExpensesScreen(expenses: _expenses, vehicles: _vehicles),
+      ExpensesScreen(
+        expenses: _expenses,
+        vehicles: _vehicles,
+        onEditExpense: _openEditExpenseFlow,
+        onDeleteExpense: _deleteExpense,
+        onBulkDeleteExpenses: _bulkDeleteExpenses,
+      ),
       VehiclesScreen(
         vehicles: _vehicles,
         expenses: _expenses,
         reminders: _reminders,
         onAddVehicle: _openAddVehicleFlow,
+        onEditVehicle: _openEditVehicleFlow,
+        onDeleteVehicle: (vehicleId) => unawaited(_deleteVehicle(vehicleId)),
+        onAddReminder: _openAddReminderFlow,
+        onEditReminder: _openEditReminderFlow,
+        onDeleteReminder: _deleteReminder,
+        onEditExpense: _openEditExpenseFlow,
+        onDeleteExpense: _deleteExpense,
       ),
       ProfileScreen(
         user: widget.currentUser,
@@ -710,6 +1031,7 @@ class _HomeShellState extends State<HomeShell> {
         usingLocalData: _usingLocalData,
         demoModeEnabled: _demoModeEnabled,
         onDemoModeChanged: _onDemoModeChanged,
+        onUpdateProfile: widget.onUpdateProfile,
       ),
     ];
 

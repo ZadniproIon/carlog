@@ -6,27 +6,21 @@ import '../models.dart';
 import '../services/nlp_expense_analyzer.dart';
 import '../services/speech_recognition_service.dart';
 
-enum ExpenseInputMode {
-  manual,
-  text,
-  voice,
-}
+enum ExpenseInputMode { manual, text, voice }
 
-enum ExpenseWizardStep {
-  textInput,
-  voiceInput,
-  manualForm,
-}
+enum ExpenseWizardStep { textInput, voiceInput, manualForm }
 
 class AddExpenseScreen extends StatefulWidget {
   const AddExpenseScreen({
     super.key,
     required this.vehicles,
     required this.initialMode,
+    this.initialExpense,
   });
 
   final List<Vehicle> vehicles;
   final ExpenseInputMode initialMode;
+  final CarExpense? initialExpense;
 
   @override
   State<AddExpenseScreen> createState() => _AddExpenseScreenState();
@@ -63,10 +57,24 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   void initState() {
     super.initState();
 
-    _step = _stepForMode(widget.initialMode);
+    _step = widget.initialExpense == null
+        ? _stepForMode(widget.initialMode)
+        : ExpenseWizardStep.manualForm;
 
     if (widget.vehicles.isNotEmpty) {
       _selectedVehicle = widget.vehicles.first;
+    }
+
+    if (widget.initialExpense != null) {
+      final expense = widget.initialExpense!;
+      _amountController.text = _formatAmount(expense.amount);
+      _descriptionController.text = expense.description;
+      _mileageController.text = expense.mileage.toString();
+      _category = expense.category;
+      _selectedDate = expense.date;
+      _selectedVehicle = widget.vehicles
+          .where((vehicle) => vehicle.id == expense.vehicleId)
+          .firstOrNull;
     }
     _initialVehicleId = _selectedVehicle?.id;
     _initialDate = DateTime(
@@ -120,11 +128,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Add expense'),
+          title: Text(
+            widget.initialExpense == null ? 'Add expense' : 'Edit expense',
+          ),
         ),
-        body: SafeArea(
-          child: _buildCurrentStep(),
-        ),
+        body: SafeArea(child: _buildCurrentStep()),
       ),
     );
   }
@@ -144,10 +152,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(
-          'Text input',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+        Text('Text input', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Text(
           'Describe the expense, then continue to the form and complete missing details.',
@@ -158,7 +163,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           controller: _textInputController,
           maxLines: 5,
           decoration: const InputDecoration(
-            hintText: 'Example: am alimentat cu 350 lei pentru Passat, 186000 km',
+            hintText:
+                'Example: am alimentat cu 350 lei pentru Passat, 186000 km',
           ),
         ),
         const SizedBox(height: 16),
@@ -185,10 +191,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(
-          'Voice input',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
+        Text('Voice input', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 8),
         Text(
           'Record, edit transcript if needed, then continue to the manual form.',
@@ -280,9 +283,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           DropdownButtonFormField<ExpenseCategory>(
             key: ValueKey<String>('category_${_category.name}'),
             initialValue: _category,
-            decoration: const InputDecoration(
-              labelText: 'Category',
-            ),
+            decoration: const InputDecoration(labelText: 'Category'),
             items: ExpenseCategory.values
                 .map(
                   (c) => DropdownMenuItem(
@@ -301,15 +302,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           DropdownButtonFormField<Vehicle>(
             key: ValueKey<String>('vehicle_${_selectedVehicle?.id ?? 'none'}'),
             initialValue: _selectedVehicle,
-            decoration: const InputDecoration(
-              labelText: 'Vehicle',
-            ),
+            decoration: const InputDecoration(labelText: 'Vehicle'),
             items: widget.vehicles
                 .map(
-                  (v) => DropdownMenuItem(
-                    value: v,
-                    child: Text(v.displayName),
-                  ),
+                  (v) => DropdownMenuItem(value: v, child: Text(v.displayName)),
                 )
                 .toList(),
             onChanged: (value) {
@@ -319,9 +315,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           const SizedBox(height: 12),
           TextFormField(
             controller: _descriptionController,
-            decoration: const InputDecoration(
-              labelText: 'Description',
-            ),
+            decoration: const InputDecoration(labelText: 'Description'),
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -347,9 +341,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             borderRadius: BorderRadius.circular(12),
             onTap: _pickDate,
             child: InputDecorator(
-              decoration: const InputDecoration(
-                labelText: 'Date',
-              ),
+              decoration: const InputDecoration(labelText: 'Date'),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -363,7 +355,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           FilledButton.icon(
             onPressed: _submit,
             icon: const Icon(Icons.check),
-            label: const Text('Save expense'),
+            label: Text(
+              widget.initialExpense == null ? 'Save expense' : 'Update expense',
+            ),
           ),
         ],
       ),
@@ -390,9 +384,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     );
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Added a demo voice transcript.'),
-      ),
+      const SnackBar(content: Text('Added a demo voice transcript.')),
     );
   }
 
@@ -514,9 +506,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       return;
     }
     if (_selectedVehicle == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a vehicle.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please select a vehicle.')));
       return;
     }
 
@@ -529,7 +521,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         : int.parse(_mileageController.text.trim());
 
     final newExpense = CarExpense(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id:
+          widget.initialExpense?.id ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
       amount: amount,
       category: _category,
       date: _selectedDate,
@@ -628,4 +622,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         '${date.month.toString().padLeft(2, '0')}/'
         '${date.year}';
   }
+}
+
+extension _FirstOrNull<T> on Iterable<T> {
+  T? get firstOrNull => isEmpty ? null : first;
 }

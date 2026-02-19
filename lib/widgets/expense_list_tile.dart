@@ -8,11 +8,19 @@ class ExpenseListTile extends StatelessWidget {
     required this.expense,
     required this.vehicle,
     this.margin = const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+    this.onTap,
+    this.onLongPress,
+    this.trailing,
+    this.isSelected = false,
   });
 
   final CarExpense expense;
   final Vehicle? vehicle;
   final EdgeInsetsGeometry margin;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final Widget? trailing;
+  final bool isSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -24,7 +32,9 @@ class ExpenseListTile extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 0,
       child: ListTile(
-        onTap: () => _showExpenseDetails(context),
+        onTap: onTap ?? () => _showExpenseDetails(context),
+        onLongPress: onLongPress,
+        selected: isSelected,
         leading: CircleAvatar(
           backgroundColor: palette.background,
           child: Icon(
@@ -53,12 +63,14 @@ class ExpenseListTile extends StatelessWidget {
             ),
           ],
         ),
-        trailing: Text(
-          '${expense.amount.toStringAsFixed(0)} lei',
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-        ),
+        trailing:
+            trailing ??
+            Text(
+              '${expense.amount.toStringAsFixed(0)} lei',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
       ),
     );
   }
@@ -110,14 +122,8 @@ class ExpenseListTile extends StatelessWidget {
                   label: 'Vehicle',
                   value: vehicle?.displayName ?? 'Unknown vehicle',
                 ),
-                _DetailRow(
-                  label: 'Date',
-                  value: _formatDateFull(expense.date),
-                ),
-                _DetailRow(
-                  label: 'Mileage',
-                  value: '${expense.mileage} km',
-                ),
+                _DetailRow(label: 'Date', value: _formatDateFull(expense.date)),
+                _DetailRow(label: 'Mileage', value: '${expense.mileage} km'),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
@@ -198,10 +204,7 @@ class ExpenseListTile extends StatelessWidget {
 }
 
 class _DetailRow extends StatelessWidget {
-  const _DetailRow({
-    required this.label,
-    required this.value,
-  });
+  const _DetailRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -216,16 +219,16 @@ class _DetailRow extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           Text(
             value,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: Theme.of(context).colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -234,10 +237,7 @@ class _DetailRow extends StatelessWidget {
 }
 
 class _CategoryPalette {
-  const _CategoryPalette({
-    required this.background,
-    required this.foreground,
-  });
+  const _CategoryPalette({required this.background, required this.foreground});
 
   final Color background;
   final Color foreground;

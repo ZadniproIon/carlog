@@ -68,6 +68,26 @@ class Vehicle {
 
   String get displayName => '$brand $model';
 
+  Vehicle copyWith({
+    String? id,
+    String? brand,
+    String? model,
+    int? year,
+    String? engine,
+    String? vin,
+    int? mileage,
+  }) {
+    return Vehicle(
+      id: id ?? this.id,
+      brand: brand ?? this.brand,
+      model: model ?? this.model,
+      year: year ?? this.year,
+      engine: engine ?? this.engine,
+      vin: vin ?? this.vin,
+      mileage: mileage ?? this.mileage,
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -114,6 +134,26 @@ class CarExpense {
   final int mileage;
   final String vehicleId;
 
+  CarExpense copyWith({
+    String? id,
+    double? amount,
+    ExpenseCategory? category,
+    DateTime? date,
+    String? description,
+    int? mileage,
+    String? vehicleId,
+  }) {
+    return CarExpense(
+      id: id ?? this.id,
+      amount: amount ?? this.amount,
+      category: category ?? this.category,
+      date: date ?? this.date,
+      description: description ?? this.description,
+      mileage: mileage ?? this.mileage,
+      vehicleId: vehicleId ?? this.vehicleId,
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -158,6 +198,26 @@ class MaintenanceReminder {
   final int? dueMileage;
   final String vehicleId;
 
+  MaintenanceReminder copyWith({
+    String? id,
+    String? title,
+    String? description,
+    DateTime? dueDate,
+    int? dueMileage,
+    bool clearDueDate = false,
+    bool clearDueMileage = false,
+    String? vehicleId,
+  }) {
+    return MaintenanceReminder(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      dueDate: clearDueDate ? null : (dueDate ?? this.dueDate),
+      dueMileage: clearDueMileage ? null : (dueMileage ?? this.dueMileage),
+      vehicleId: vehicleId ?? this.vehicleId,
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -201,6 +261,22 @@ class MockAuthUser {
   final bool isGuest;
   final String? uid;
   final bool isCloudUser;
+
+  MockAuthUser copyWith({
+    String? name,
+    String? email,
+    bool? isGuest,
+    String? uid,
+    bool? isCloudUser,
+  }) {
+    return MockAuthUser(
+      name: name ?? this.name,
+      email: email ?? this.email,
+      isGuest: isGuest ?? this.isGuest,
+      uid: uid ?? this.uid,
+      isCloudUser: isCloudUser ?? this.isCloudUser,
+    );
+  }
 
   factory MockAuthUser.guest() {
     return const MockAuthUser(

@@ -14,6 +14,7 @@ class ProfileScreen extends StatefulWidget {
     required this.usingLocalData,
     required this.demoModeEnabled,
     required this.onDemoModeChanged,
+    required this.onUpdateProfile,
   });
 
   final MockAuthUser user;
@@ -24,6 +25,7 @@ class ProfileScreen extends StatefulWidget {
   final bool usingLocalData;
   final bool demoModeEnabled;
   final ValueChanged<bool> onDemoModeChanged;
+  final Future<String?> Function(String name, String email) onUpdateProfile;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -59,6 +61,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               firebaseEnabled: widget.firebaseEnabled,
               usingLocalData: widget.usingLocalData,
               demoModeEnabled: widget.demoModeEnabled,
+              onUpdateProfile: widget.onUpdateProfile,
             ),
             const _PreferencesTabContainer(),
             const _DeveloperTabContainer(),
@@ -101,12 +104,14 @@ class _AccountTab extends StatelessWidget {
     required this.firebaseEnabled,
     required this.usingLocalData,
     required this.demoModeEnabled,
+    required this.onUpdateProfile,
   });
 
   final MockAuthUser user;
   final bool firebaseEnabled;
   final bool usingLocalData;
   final bool demoModeEnabled;
+  final Future<String?> Function(String name, String email) onUpdateProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -178,6 +183,12 @@ class _AccountTab extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
+        FilledButton.icon(
+          onPressed: () => _showEditProfileDialog(context),
+          icon: const Icon(Icons.edit_outlined),
+          label: const Text('Edit profile fields'),
+        ),
+        const SizedBox(height: 12),
         _Section(
           title: 'Account status',
           child: Column(
@@ -232,6 +243,101 @@ class _AccountTab extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Future<void> _showEditProfileDialog(BuildContext context) async {
+    final nameController = TextEditingController(text: user.name);
+    final emailController = TextEditingController(text: user.email);
+    final formKey = GlobalKey<FormState>();
+    bool isLoading = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Edit profile'),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: nameController,
+                      decoration: const InputDecoration(labelText: 'Name'),
+                      validator: (value) {
+                        if (value == null || value.trim().length < 2) {
+                          return 'Enter a valid name';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: emailController,
+                      decoration: const InputDecoration(labelText: 'Email'),
+                      validator: (value) {
+                        final email = value?.trim() ?? '';
+                        if (email.isEmpty || !email.contains('@')) {
+                          return 'Enter a valid email';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isLoading
+                      ? null
+                      : () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          if (!formKey.currentState!.validate()) {
+                            return;
+                          }
+                          setState(() => isLoading = true);
+                          final error = await onUpdateProfile(
+                            nameController.text.trim(),
+                            emailController.text.trim(),
+                          );
+                          if (!context.mounted) {
+                            return;
+                          }
+                          setState(() => isLoading = false);
+                          if (error == null) {
+                            Navigator.of(context).pop();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Profile updated.')),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(
+                              context,
+                            ).showSnackBar(SnackBar(content: Text(error)));
+                          }
+                        },
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    nameController.dispose();
+    emailController.dispose();
   }
 }
 

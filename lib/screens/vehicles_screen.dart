@@ -12,12 +12,26 @@ class VehiclesScreen extends StatelessWidget {
     required this.expenses,
     required this.reminders,
     required this.onAddVehicle,
+    required this.onEditVehicle,
+    required this.onDeleteVehicle,
+    required this.onAddReminder,
+    required this.onEditReminder,
+    required this.onDeleteReminder,
+    required this.onEditExpense,
+    required this.onDeleteExpense,
   });
 
   final List<Vehicle> vehicles;
   final List<CarExpense> expenses;
   final List<MaintenanceReminder> reminders;
   final VoidCallback onAddVehicle;
+  final ValueChanged<Vehicle> onEditVehicle;
+  final ValueChanged<String> onDeleteVehicle;
+  final ValueChanged<String> onAddReminder;
+  final ValueChanged<MaintenanceReminder> onEditReminder;
+  final ValueChanged<String> onDeleteReminder;
+  final ValueChanged<CarExpense> onEditExpense;
+  final ValueChanged<String> onDeleteExpense;
 
   @override
   Widget build(BuildContext context) {
@@ -32,69 +46,100 @@ class VehiclesScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: vehicles.length,
-        itemBuilder: (context, index) {
-          final vehicle = vehicles[index];
-          return InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => VehicleDetailScreen(
-                    vehicle: vehicle,
-                    expenses: expenses,
-                    reminders: reminders,
+      body: vehicles.isEmpty
+          ? const Center(child: Text('No vehicles yet. Add your first one.'))
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: vehicles.length,
+              itemBuilder: (context, index) {
+                final vehicle = vehicles[index];
+                return InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => VehicleDetailScreen(
+                          vehicle: vehicle,
+                          expenses: expenses,
+                          reminders: reminders,
+                          onEditVehicle: onEditVehicle,
+                          onDeleteVehicle: onDeleteVehicle,
+                          onAddReminder: onAddReminder,
+                          onEditReminder: onEditReminder,
+                          onDeleteReminder: onDeleteReminder,
+                          onEditExpense: onEditExpense,
+                          onDeleteExpense: onDeleteExpense,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Card(
+                    elevation: 0,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.directions_car_filled_outlined),
+                              const SizedBox(width: 8),
+                              Text(
+                                vehicle.displayName,
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const Spacer(),
+                              Text(
+                                '${vehicle.mileage} km',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                              PopupMenuButton<String>(
+                                onSelected: (value) {
+                                  if (value == 'edit') {
+                                    onEditVehicle(vehicle);
+                                  } else if (value == 'delete') {
+                                    onDeleteVehicle(vehicle.id);
+                                  }
+                                },
+                                itemBuilder: (context) => const [
+                                  PopupMenuItem(
+                                    value: 'edit',
+                                    child: Text('Edit'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text('Delete'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 4,
+                            children: [
+                              _InfoChip(
+                                label: 'Year ${vehicle.year}',
+                                icon: Icons.calendar_today_outlined,
+                              ),
+                              _InfoChip(
+                                label: vehicle.engine,
+                                icon: Icons.speed,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              );
-            },
-            child: Card(
-              elevation: 0,
-              margin: const EdgeInsets.only(bottom: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.directions_car_filled_outlined),
-                        const SizedBox(width: 8),
-                        Text(
-                          vehicle.displayName,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const Spacer(),
-                        Text(
-                          '${vehicle.mileage} km',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 4,
-                      children: [
-                        _InfoChip(
-                          label: 'Year ${vehicle.year}',
-                          icon: Icons.calendar_today_outlined,
-                        ),
-                        _InfoChip(label: vehicle.engine, icon: Icons.speed),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+                );
+              },
             ),
-          );
-        },
-      ),
     );
   }
 }
@@ -122,26 +167,43 @@ class VehicleDetailScreen extends StatelessWidget {
     required this.vehicle,
     required this.expenses,
     required this.reminders,
+    required this.onEditVehicle,
+    required this.onDeleteVehicle,
+    required this.onAddReminder,
+    required this.onEditReminder,
+    required this.onDeleteReminder,
+    required this.onEditExpense,
+    required this.onDeleteExpense,
   });
 
   final Vehicle vehicle;
   final List<CarExpense> expenses;
   final List<MaintenanceReminder> reminders;
+  final ValueChanged<Vehicle> onEditVehicle;
+  final ValueChanged<String> onDeleteVehicle;
+  final ValueChanged<String> onAddReminder;
+  final ValueChanged<MaintenanceReminder> onEditReminder;
+  final ValueChanged<String> onDeleteReminder;
+  final ValueChanged<CarExpense> onEditExpense;
+  final ValueChanged<String> onDeleteExpense;
 
   @override
   Widget build(BuildContext context) {
     final vehicleExpenses = expenses
         .where((e) => e.vehicleId == vehicle.id)
         .toList();
-    final vehicleReminders = reminders
-        .where((r) => r.vehicleId == vehicle.id)
-        .toList();
+    final vehicleReminders =
+        reminders.where((r) => r.vehicleId == vehicle.id).toList()
+          ..sort((a, b) {
+            final aDate = a.dueDate ?? DateTime(9999);
+            final bDate = b.dueDate ?? DateTime(9999);
+            return aDate.compareTo(bDate);
+          });
 
     final totalSpent = vehicleExpenses.fold<double>(
       0,
       (sum, e) => sum + e.amount,
     );
-
     vehicleExpenses.sort((a, b) => b.date.compareTo(a.date));
     final lastExpense = vehicleExpenses.isNotEmpty
         ? vehicleExpenses.first
@@ -157,10 +219,30 @@ class VehicleDetailScreen extends StatelessWidget {
         .where((e) => e.date.isAfter(now.subtract(const Duration(days: 30))))
         .length;
 
-    final aiInsight = _getVehicleAiInsight(vehicle);
-
     return Scaffold(
-      appBar: AppBar(title: Text('${vehicle.displayName} · ${vehicle.year}')),
+      appBar: AppBar(
+        title: Text('${vehicle.displayName} - ${vehicle.year}'),
+        actions: [
+          IconButton(
+            tooltip: 'Edit vehicle',
+            onPressed: () => onEditVehicle(vehicle),
+            icon: const Icon(Icons.edit_outlined),
+          ),
+          IconButton(
+            tooltip: 'Delete vehicle',
+            onPressed: () {
+              onDeleteVehicle(vehicle.id);
+              Navigator.of(context).pop();
+            },
+            icon: const Icon(Icons.delete_outline),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => onAddReminder(vehicle.id),
+        icon: const Icon(Icons.add_alert_outlined),
+        label: const Text('Add reminder'),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Column(
@@ -178,7 +260,7 @@ class VehicleDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${vehicle.year} • ${vehicle.engine}',
+                    '${vehicle.year} - ${vehicle.engine}',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
@@ -223,50 +305,6 @@ class VehicleDetailScreen extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-            _SectionCard(
-              title: 'AI Insight',
-              icon: Icons.auto_awesome,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    aiInsight.summary,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 10),
-                  ...aiInsight.bullets.map(
-                    (bullet) => Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.only(top: 6),
-                            child: Icon(Icons.circle, size: 7),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              bullet,
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'AI-generated demo insight. Verify with owner manual and service documentation.',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontStyle: FontStyle.italic,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -302,7 +340,11 @@ class VehicleDetailScreen extends StatelessWidget {
             if (vehicleReminders.isEmpty)
               const Text('No maintenance reminders set.')
             else
-              _VehicleMaintenanceList(reminders: vehicleReminders),
+              _VehicleMaintenanceList(
+                reminders: vehicleReminders,
+                onEditReminder: onEditReminder,
+                onDeleteReminder: onDeleteReminder,
+              ),
             const SizedBox(height: 16),
             Text(
               'Expense history',
@@ -313,64 +355,30 @@ class VehicleDetailScreen extends StatelessWidget {
               const Text('No expenses recorded for this vehicle yet.')
             else
               Column(
-                children: vehicleExpenses
-                    .map((e) => ExpenseListTile(expense: e, vehicle: vehicle))
-                    .toList(),
+                children: vehicleExpenses.map((expense) {
+                  return ExpenseListTile(
+                    expense: expense,
+                    vehicle: vehicle,
+                    trailing: PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'edit') {
+                          onEditExpense(expense);
+                        } else if (value == 'delete') {
+                          onDeleteExpense(expense.id);
+                        }
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(value: 'edit', child: Text('Edit')),
+                        PopupMenuItem(value: 'delete', child: Text('Delete')),
+                      ],
+                    ),
+                  );
+                }).toList(),
               ),
             const SizedBox(height: 24),
           ],
         ),
       ),
-    );
-  }
-
-  _VehicleAiInsight _getVehicleAiInsight(Vehicle vehicle) {
-    final key = '${vehicle.brand.toLowerCase()} ${vehicle.model.toLowerCase()}';
-
-    if (key.contains('volkswagen') && key.contains('passat')) {
-      return const _VehicleAiInsight(
-        summary:
-            'The Volkswagen Passat 2.0 TDI is generally a reliable long-distance daily driver when maintenance intervals are respected. It offers good fuel economy and predictable running costs for its class.',
-        bullets: [
-          'Common things to monitor: EGR valve, DPF load, and turbo actuator wear on higher mileage.',
-          'Use quality oil and timely filter changes to reduce diesel system issues.',
-          'Watch for suspension bush wear and dual-mass flywheel vibration as mileage grows.',
-        ],
-      );
-    }
-
-    if (key.contains('tesla') && key.contains('model 3')) {
-      return const _VehicleAiInsight(
-        summary:
-            'Tesla Model 3 Long Range is considered a dependable EV drivetrain-wise, with low routine maintenance compared to combustion vehicles. Ownership experience is usually software- and tire-dependent.',
-        bullets: [
-          'Common things to monitor: tire wear (high torque), alignment, and occasional 12V battery/service alerts.',
-          'Maintain tire pressure and rotate regularly to improve efficiency and tire lifespan.',
-          'Track charging habits and preconditioning to reduce battery stress in extreme temperatures.',
-        ],
-      );
-    }
-
-    if (key.contains('porsche') && key.contains('cayenne')) {
-      return const _VehicleAiInsight(
-        summary:
-            'Porsche Cayenne Hybrid is usually robust when serviced on schedule, but running costs can be high. It is reliable as a premium SUV if preventive maintenance is done consistently.',
-        bullets: [
-          'Common things to monitor: air suspension components, cooling system health, and hybrid battery system checks.',
-          'Premium tires, brakes, and suspension consumables can significantly affect ownership costs.',
-          'Follow official service intervals closely to avoid costly drivetrain and electronics issues.',
-        ],
-      );
-    }
-
-    return const _VehicleAiInsight(
-      summary:
-          'This model has a balanced reliability profile when maintained consistently. Preventive service and quality parts are the biggest factors for long-term cost control.',
-      bullets: [
-        'Monitor recurring repair categories and investigate patterns early.',
-        'Respect service intervals and track major consumables.',
-        'Keep records complete to improve resale value and maintenance planning.',
-      ],
     );
   }
 
@@ -454,17 +462,16 @@ class _SpecRow extends StatelessWidget {
   }
 }
 
-class _VehicleAiInsight {
-  const _VehicleAiInsight({required this.summary, required this.bullets});
-
-  final String summary;
-  final List<String> bullets;
-}
-
 class _VehicleMaintenanceList extends StatelessWidget {
-  const _VehicleMaintenanceList({required this.reminders});
+  const _VehicleMaintenanceList({
+    required this.reminders,
+    required this.onEditReminder,
+    required this.onDeleteReminder,
+  });
 
   final List<MaintenanceReminder> reminders;
+  final ValueChanged<MaintenanceReminder> onEditReminder;
+  final ValueChanged<String> onDeleteReminder;
 
   @override
   Widget build(BuildContext context) {
@@ -482,6 +489,19 @@ class _VehicleMaintenanceList extends StatelessWidget {
             title: Text(r.title),
             subtitle: Text('$dueInfo\n${r.description}'),
             isThreeLine: true,
+            trailing: PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value == 'edit') {
+                  onEditReminder(r);
+                } else if (value == 'delete') {
+                  onDeleteReminder(r.id);
+                }
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(value: 'edit', child: Text('Edit')),
+                PopupMenuItem(value: 'delete', child: Text('Delete')),
+              ],
+            ),
           ),
         );
       }).toList(),

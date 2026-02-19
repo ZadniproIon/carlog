@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../models.dart';
 
 class AddVehicleScreen extends StatefulWidget {
-  const AddVehicleScreen({super.key});
+  const AddVehicleScreen({super.key, this.initialVehicle});
+
+  final Vehicle? initialVehicle;
 
   @override
   State<AddVehicleScreen> createState() => _AddVehicleScreenState();
@@ -30,10 +32,27 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+
+    final vehicle = widget.initialVehicle;
+    if (vehicle != null) {
+      _brandController.text = vehicle.brand;
+      _modelController.text = vehicle.model;
+      _yearController.text = vehicle.year.toString();
+      _engineController.text = vehicle.engine;
+      _vinController.text = vehicle.vin;
+      _mileageController.text = vehicle.mileage.toString();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add vehicle'),
+        title: Text(
+          widget.initialVehicle == null ? 'Add vehicle' : 'Edit vehicle',
+        ),
       ),
       body: SafeArea(
         child: Form(
@@ -43,9 +62,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
             children: [
               TextFormField(
                 controller: _brandController,
-                decoration: const InputDecoration(
-                  labelText: 'Brand',
-                ),
+                decoration: const InputDecoration(labelText: 'Brand'),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return 'Please enter a brand';
@@ -56,9 +73,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _modelController,
-                decoration: const InputDecoration(
-                  labelText: 'Model',
-                ),
+                decoration: const InputDecoration(labelText: 'Model'),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return 'Please enter a model';
@@ -70,15 +85,15 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
               TextFormField(
                 controller: _yearController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Year',
-                ),
+                decoration: const InputDecoration(labelText: 'Year'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter year';
                   }
                   final year = int.tryParse(value);
-                  if (year == null || year < 1990 || year > DateTime.now().year + 1) {
+                  if (year == null ||
+                      year < 1990 ||
+                      year > DateTime.now().year + 1) {
                     return 'Enter a valid year';
                   }
                   return null;
@@ -95,9 +110,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _vinController,
-                decoration: const InputDecoration(
-                  labelText: 'VIN (optional)',
-                ),
+                decoration: const InputDecoration(labelText: 'VIN (optional)'),
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -121,7 +134,11 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
               FilledButton.icon(
                 onPressed: _submit,
                 icon: const Icon(Icons.check),
-                label: const Text('Save vehicle'),
+                label: Text(
+                  widget.initialVehicle == null
+                      ? 'Save vehicle'
+                      : 'Update vehicle',
+                ),
               ),
             ],
           ),
@@ -136,7 +153,9 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     }
 
     final vehicle = Vehicle(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      id:
+          widget.initialVehicle?.id ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
       brand: _brandController.text.trim(),
       model: _modelController.text.trim(),
       year: int.parse(_yearController.text),
@@ -152,4 +171,3 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     Navigator.of(context).pop(vehicle);
   }
 }
-
