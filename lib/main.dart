@@ -488,6 +488,8 @@ class _HomeShellState extends State<HomeShell> {
   late List<MaintenanceReminder> _reminders;
   bool _usingLocalData = true;
   bool _demoModeEnabled = false;
+  SharedPreferences? _preferences;
+  CarlogDataSnapshot? _cachedNonDemoSnapshot;
 
   @override
   void initState() {
@@ -501,8 +503,8 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   Future<void> _loadPreferencesAndData() async {
-    final preferences = await SharedPreferences.getInstance();
-    final demoEnabled = preferences.getBool(_demoModePrefKey) ?? false;
+    _preferences = await SharedPreferences.getInstance();
+    final demoEnabled = _preferences!.getBool(_demoModePrefKey) ?? false;
     if (!mounted) {
       return;
     }
@@ -510,7 +512,7 @@ class _HomeShellState extends State<HomeShell> {
     await _loadInitialData();
   }
 
-  Future<void> _loadInitialData() async {
+  Future<void> _loadInitialData({bool forceRefresh = false}) async {
     if (_demoModeEnabled) {
       if (!mounted) {
         return;
@@ -525,6 +527,21 @@ class _HomeShellState extends State<HomeShell> {
       return;
     }
 
+    if (!forceRefresh && _cachedNonDemoSnapshot != null) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _vehicles = List<Vehicle>.from(_cachedNonDemoSnapshot!.vehicles);
+        _expenses = List<CarExpense>.from(_cachedNonDemoSnapshot!.expenses);
+        _reminders = List<MaintenanceReminder>.from(
+          _cachedNonDemoSnapshot!.reminders,
+        );
+        _usingLocalData = _cachedNonDemoSnapshot!.isLocalOnly;
+      });
+      return;
+    }
+
     final snapshot = await widget.repository.loadInitialData(
       user: widget.currentUser,
     );
@@ -533,6 +550,7 @@ class _HomeShellState extends State<HomeShell> {
       return;
     }
 
+    _cachedNonDemoSnapshot = snapshot;
     setState(() {
       _vehicles = snapshot.vehicles;
       _expenses = snapshot.expenses;
@@ -896,15 +914,28 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   Future<void> _onDemoModeChanged(bool enabled) async {
-    final preferences = await SharedPreferences.getInstance();
-    await preferences.setBool(_demoModePrefKey, enabled);
+    final prefs = _preferences ?? await SharedPreferences.getInstance();
+    _preferences = prefs;
+    unawaited(prefs.setBool(_demoModePrefKey, enabled));
+
     if (!mounted) {
       return;
     }
+
     setState(() {
       _demoModeEnabled = enabled;
     });
+
+    if (enabled) {
+      // Instant switch to demo data without waiting on any I/O.
+      await _loadInitialData();
+      return;
+    }
+
+    // Instant restore from cache if available.
     await _loadInitialData();
+    // Background refresh to get latest cloud data.
+    unawaited(_loadInitialData(forceRefresh: true));
   }
 
   Future<ExpenseInputMode?> _showExpenseInputModeSheet() {
