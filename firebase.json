@@ -1,1 +1,28 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"carlog-nutzu","appId":"1:196433340076:android:11b71d3fa7a0d02717e109","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"carlog-nutzu","configurations":{"android":"1:196433340076:android:11b71d3fa7a0d02717e109","ios":"1:196433340076:ios:e665138be276609817e109","macos":"1:196433340076:ios:e665138be276609817e109","web":"1:196433340076:web:dbed3a3c3ac3733417e109","windows":"1:196433340076:web:93bcf74dacf3859417e109"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "carlog-nutzu",
+          "appId": "1:196433340076:android:11b71d3fa7a0d02717e109",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "carlog-nutzu",
+          "configurations": {
+            "android": "1:196433340076:android:11b71d3fa7a0d02717e109",
+            "ios": "1:196433340076:ios:e665138be276609817e109",
+            "macos": "1:196433340076:ios:e665138be276609817e109",
+            "web": "1:196433340076:web:dbed3a3c3ac3733417e109",
+            "windows": "1:196433340076:web:93bcf74dacf3859417e109"
+          }
+        }
+      }
+    }
+  }
+}

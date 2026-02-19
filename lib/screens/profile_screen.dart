@@ -12,6 +12,8 @@ class ProfileScreen extends StatefulWidget {
     required this.onLogout,
     required this.firebaseEnabled,
     required this.usingLocalData,
+    required this.demoModeEnabled,
+    required this.onDemoModeChanged,
   });
 
   final MockAuthUser user;
@@ -20,6 +22,8 @@ class ProfileScreen extends StatefulWidget {
   final VoidCallback onLogout;
   final bool firebaseEnabled;
   final bool usingLocalData;
+  final bool demoModeEnabled;
+  final ValueChanged<bool> onDemoModeChanged;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -54,6 +58,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               user: widget.user,
               firebaseEnabled: widget.firebaseEnabled,
               usingLocalData: widget.usingLocalData,
+              demoModeEnabled: widget.demoModeEnabled,
             ),
             const _PreferencesTabContainer(),
             const _DeveloperTabContainer(),
@@ -95,11 +100,13 @@ class _AccountTab extends StatelessWidget {
     required this.user,
     required this.firebaseEnabled,
     required this.usingLocalData,
+    required this.demoModeEnabled,
   });
 
   final MockAuthUser user;
   final bool firebaseEnabled;
   final bool usingLocalData;
+  final bool demoModeEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -190,7 +197,9 @@ class _AccountTab extends StatelessWidget {
               ),
               _RowLine(
                 label: 'Data source',
-                value: user.isCloudUser && !usingLocalData
+                value: demoModeEnabled
+                    ? 'Demo mode mock dataset'
+                    : user.isCloudUser && !usingLocalData
                     ? 'Cloud account dataset'
                     : 'Preloaded mock dataset',
               ),
@@ -289,6 +298,20 @@ class _PreferencesTabContainerState extends State<_PreferencesTabContainer> {
                 },
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        _Section(
+          title: 'Data mode',
+          child: SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Demo mode'),
+            subtitle: const Text(
+              'Use mock dataset instead of account cloud data',
+            ),
+            value: parent.widget.demoModeEnabled,
+            onChanged: parent.widget.onDemoModeChanged,
+            secondary: const Icon(Icons.science_outlined),
           ),
         ),
         const SizedBox(height: 12),

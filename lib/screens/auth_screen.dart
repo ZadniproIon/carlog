@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -6,6 +7,7 @@ class AuthScreen extends StatefulWidget {
     required this.onLogin,
     required this.onSignUp,
     required this.onEnterGuest,
+    this.onGoogleSignIn,
     this.firebaseEnabled = false,
   });
 
@@ -13,6 +15,7 @@ class AuthScreen extends StatefulWidget {
   final Future<String?> Function(String name, String email, String password)
   onSignUp;
   final VoidCallback onEnterGuest;
+  final Future<String?> Function()? onGoogleSignIn;
   final bool firebaseEnabled;
 
   @override
@@ -210,6 +213,14 @@ class _AuthScreenState extends State<AuthScreen> {
                                 ),
                           label: Text(_isLogin ? 'Log in' : 'Create account'),
                         ),
+                        if (_googleSignInAvailable()) ...[
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            onPressed: _isLoading ? null : _submitGoogleSignIn,
+                            icon: const Icon(Icons.g_mobiledata),
+                            label: const Text('Continue with Google'),
+                          ),
+                        ],
                         const SizedBox(height: 8),
                         OutlinedButton.icon(
                           onPressed: _isLoading ? null : widget.onEnterGuest,
@@ -246,6 +257,23 @@ class _AuthScreenState extends State<AuthScreen> {
         : 'This is a mock account system for demo use.';
   }
 
+  bool _googleSignInAvailable() {
+    if (!widget.firebaseEnabled || widget.onGoogleSignIn == null) {
+      return false;
+    }
+
+    if (kIsWeb) {
+      return true;
+    }
+
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.android => true,
+      TargetPlatform.iOS => true,
+      TargetPlatform.macOS => true,
+      _ => false,
+    };
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -266,6 +294,30 @@ class _AuthScreenState extends State<AuthScreen> {
         _passwordController.text,
       );
     }
+
+    if (!mounted) return;
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (error != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
+  Future<void> _submitGoogleSignIn() async {
+    if (widget.onGoogleSignIn == null) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    final error = await widget.onGoogleSignIn!.call();
 
     if (!mounted) return;
 

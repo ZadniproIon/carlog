@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'firebase_options.dart';
 import 'mock_data.dart';
@@ -201,6 +203,46 @@ class _MyAppState extends State<MyApp> {
     return null;
   }
 
+  Future<String?> _handleGoogleSignIn() async {
+    if (!widget.firebaseEnabled) {
+      return 'Google sign-in is not available in local mock mode.';
+    }
+
+    try {
+      final googleUser = await GoogleSignIn().signIn();
+      if (googleUser == null) {
+        return 'Google sign-in was cancelled.';
+      }
+
+      final googleAuth = await googleUser.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(
+        credential,
+      );
+      final user = userCredential.user;
+      if (user == null) {
+        return 'Could not sign in with Google right now.';
+      }
+
+      if (!mounted) {
+        return null;
+      }
+
+      setState(() {
+        _currentUser = _mapFirebaseUser(user);
+      });
+      return null;
+    } on FirebaseAuthException catch (error) {
+      return _firebaseAuthError(error);
+    } catch (_) {
+      return 'Google sign-in failed. Check Firebase Google provider setup.';
+    }
+  }
+
   void _enterGuestMode() {
     setState(() {
       _currentUser = MockAuthUser.guest();
@@ -219,6 +261,7 @@ class _MyAppState extends State<MyApp> {
         !previousUser.isGuest) {
       try {
         await FirebaseAuth.instance.signOut();
+        await GoogleSignIn().signOut();
       } catch (_) {
         // Sign out failure should not block local app logout.
       }
@@ -284,6 +327,10 @@ class _MyAppState extends State<MyApp> {
         return 'Network error. Check your connection and try again.';
       case 'too-many-requests':
         return 'Too many attempts. Try again in a few minutes.';
+      case 'account-exists-with-different-credential':
+        return 'This email already uses another sign-in method.';
+      case 'popup-closed-by-user':
+        return 'Google sign-in was cancelled.';
       default:
         return error.message ?? 'Authentication failed. Try again.';
     }
@@ -346,6 +393,7 @@ class _MyAppState extends State<MyApp> {
           ? AuthScreen(
               onLogin: _handleLogin,
               onSignUp: _handleSignUp,
+              onGoogleSignIn: _handleGoogleSignIn,
               onEnterGuest: _enterGuestMode,
               firebaseEnabled: widget.firebaseEnabled,
             )
@@ -385,25 +433,51 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
+  static const String _demoModePrefKey = 'demo_mode_enabled';
+
   int _selectedIndex = 0;
   late List<Vehicle> _vehicles;
   late List<CarExpense> _expenses;
   late List<MaintenanceReminder> _reminders;
   bool _usingLocalData = true;
+  bool _demoModeEnabled = false;
 
   @override
   void initState() {
     super.initState();
 
-    _vehicles = List<Vehicle>.from(mockVehicles);
-    _expenses = List<CarExpense>.from(mockExpenses)
-      ..sort((a, b) => b.date.compareTo(a.date));
-    _reminders = List<MaintenanceReminder>.from(mockReminders);
+    _vehicles = const [];
+    _expenses = const [];
+    _reminders = const [];
 
-    unawaited(_loadInitialData());
+    unawaited(_loadPreferencesAndData());
+  }
+
+  Future<void> _loadPreferencesAndData() async {
+    final preferences = await SharedPreferences.getInstance();
+    final demoEnabled = preferences.getBool(_demoModePrefKey) ?? false;
+    if (!mounted) {
+      return;
+    }
+    _demoModeEnabled = demoEnabled;
+    await _loadInitialData();
   }
 
   Future<void> _loadInitialData() async {
+    if (_demoModeEnabled) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _vehicles = List<Vehicle>.from(mockVehicles);
+        _expenses = List<CarExpense>.from(mockExpenses)
+          ..sort((a, b) => b.date.compareTo(a.date));
+        _reminders = List<MaintenanceReminder>.from(mockReminders);
+        _usingLocalData = true;
+      });
+      return;
+    }
+
     final snapshot = await widget.repository.loadInitialData(
       user: widget.currentUser,
     );
@@ -425,7 +499,9 @@ class _HomeShellState extends State<HomeShell> {
       _expenses.insert(0, expense);
     });
 
-    unawaited(_syncExpense(expense));
+    if (!_demoModeEnabled) {
+      unawaited(_syncExpense(expense));
+    }
   }
 
   Future<void> _syncExpense(CarExpense expense) async {
@@ -440,7 +516,7 @@ class _HomeShellState extends State<HomeShell> {
       }
 
       setState(() {
-        _usingLocalData = !widget.currentUser.isCloudUser;
+        _usingLocalData = _demoModeEnabled || !widget.currentUser.isCloudUser;
       });
     } catch (_) {
       if (!mounted) {
@@ -465,7 +541,9 @@ class _HomeShellState extends State<HomeShell> {
       _vehicles.add(vehicle);
     });
 
-    unawaited(_syncVehicle(vehicle));
+    if (!_demoModeEnabled) {
+      unawaited(_syncVehicle(vehicle));
+    }
   }
 
   Future<void> _syncVehicle(Vehicle vehicle) async {
@@ -480,7 +558,7 @@ class _HomeShellState extends State<HomeShell> {
       }
 
       setState(() {
-        _usingLocalData = !widget.currentUser.isCloudUser;
+        _usingLocalData = _demoModeEnabled || !widget.currentUser.isCloudUser;
       });
     } catch (_) {
       if (!mounted) {
@@ -507,6 +585,18 @@ class _HomeShellState extends State<HomeShell> {
     if (newVehicle != null) {
       _addVehicle(newVehicle);
     }
+  }
+
+  Future<void> _onDemoModeChanged(bool enabled) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool(_demoModePrefKey, enabled);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _demoModeEnabled = enabled;
+    });
+    await _loadInitialData();
   }
 
   Future<ExpenseInputMode?> _showExpenseInputModeSheet() {
@@ -618,6 +708,8 @@ class _HomeShellState extends State<HomeShell> {
         onLogout: widget.onLogout,
         firebaseEnabled: widget.firebaseEnabled,
         usingLocalData: _usingLocalData,
+        demoModeEnabled: _demoModeEnabled,
+        onDemoModeChanged: _onDemoModeChanged,
       ),
     ];
 

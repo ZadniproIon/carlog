@@ -18,7 +18,7 @@ Do not delete `lib/mock_data.dart` if you need demo recordings.
 ## Firebase Setup (What To Do)
 
 1. Create a Firebase project in the Firebase Console.
-2. In Authentication, enable `Email/Password` sign-in.
+2. In Authentication, enable `Email/Password` and `Google` sign-in methods.
 3. Create a Firestore database (start in test mode for development).
 4. In Firestore Rules, use the rules from `firestore.rules` (user-isolated access by `uid`).
 5. Install FlutterFire CLI:
@@ -42,6 +42,16 @@ flutter run
 ```
 
 If Firebase init fails, the app automatically falls back to local mock mode.
+
+### Google Sign-In notes
+
+- Android: add SHA-1 and SHA-256 fingerprints in Firebase project settings for your app package.
+  - Debug SHA can be obtained with:
+  ```bash
+  keytool -list -v -alias androiddebugkey -keystore %USERPROFILE%\\.android\\debug.keystore -storepass android -keypass android
+  ```
+- iOS: ensure the generated `GoogleService-Info.plist` is present in `ios/Runner`.
+- Web: ensure your Firebase Auth authorized domains include your web host.
 
 ## Firestore Data Shape
 

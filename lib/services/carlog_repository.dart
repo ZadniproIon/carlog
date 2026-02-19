@@ -27,8 +27,12 @@ class CarlogRepository {
   Future<CarlogDataSnapshot> loadInitialData({
     required MockAuthUser user,
   }) async {
-    if (!_canUseCloud(user)) {
+    if (user.isGuest) {
       return _buildMockSnapshot(isLocalOnly: true);
+    }
+
+    if (!_canUseCloud(user)) {
+      return _buildEmptySnapshot(isLocalOnly: true);
     }
 
     try {
@@ -65,13 +69,6 @@ class CarlogRepository {
         return MaintenanceReminder.fromMap(data);
       }).toList();
 
-      final isFirstCloudSession =
-          vehicles.isEmpty && expenses.isEmpty && reminders.isEmpty;
-      if (isFirstCloudSession) {
-        await _seedMockDataForUser(user.uid!);
-        return _buildMockSnapshot(isLocalOnly: false);
-      }
-
       expenses.sort((a, b) => b.date.compareTo(a.date));
       reminders.sort((a, b) {
         final aDate = a.dueDate ?? DateTime(9999);
@@ -86,7 +83,7 @@ class CarlogRepository {
         isLocalOnly: false,
       );
     } catch (_) {
-      return _buildMockSnapshot(isLocalOnly: true);
+      return _buildEmptySnapshot(isLocalOnly: true);
     }
   }
 
@@ -136,32 +133,12 @@ class CarlogRepository {
     );
   }
 
-  Future<void> _seedMockDataForUser(String uid) async {
-    final userRef = _userRef(uid);
-    final batch = _firestore!.batch();
-
-    for (final vehicle in mockVehicles) {
-      batch.set(
-        userRef.collection('vehicles').doc(vehicle.id),
-        vehicle.toMap(),
-        SetOptions(merge: true),
-      );
-    }
-    for (final expense in mockExpenses) {
-      batch.set(
-        userRef.collection('expenses').doc(expense.id),
-        expense.toMap(),
-        SetOptions(merge: true),
-      );
-    }
-    for (final reminder in mockReminders) {
-      batch.set(
-        userRef.collection('reminders').doc(reminder.id),
-        reminder.toMap(),
-        SetOptions(merge: true),
-      );
-    }
-
-    await batch.commit();
+  CarlogDataSnapshot _buildEmptySnapshot({required bool isLocalOnly}) {
+    return CarlogDataSnapshot(
+      vehicles: const [],
+      expenses: const [],
+      reminders: const [],
+      isLocalOnly: isLocalOnly,
+    );
   }
 }
