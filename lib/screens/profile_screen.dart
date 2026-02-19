@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../models.dart';
 import '../services/notification_service.dart';
@@ -10,12 +10,16 @@ class ProfileScreen extends StatefulWidget {
     required this.themeMode,
     required this.onThemeModeChanged,
     required this.onLogout,
+    required this.firebaseEnabled,
+    required this.usingLocalData,
   });
 
   final MockAuthUser user;
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
   final VoidCallback onLogout;
+  final bool firebaseEnabled;
+  final bool usingLocalData;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -46,7 +50,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         body: TabBarView(
           children: [
-            _AccountTab(user: widget.user),
+            _AccountTab(
+              user: widget.user,
+              firebaseEnabled: widget.firebaseEnabled,
+              usingLocalData: widget.usingLocalData,
+            ),
             const _PreferencesTabContainer(),
             const _DeveloperTabContainer(),
           ],
@@ -83,9 +91,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 }
 
 class _AccountTab extends StatelessWidget {
-  const _AccountTab({required this.user});
+  const _AccountTab({
+    required this.user,
+    required this.firebaseEnabled,
+    required this.usingLocalData,
+  });
 
   final MockAuthUser user;
+  final bool firebaseEnabled;
+  final bool usingLocalData;
 
   @override
   Widget build(BuildContext context) {
@@ -139,9 +153,13 @@ class _AccountTab extends StatelessWidget {
                                 : Icons.verified_user_outlined,
                             label: user.isGuest ? 'Guest mode' : 'Signed in',
                           ),
-                          const _Badge(
-                            icon: Icons.cloud_done_outlined,
-                            label: 'Mock account',
+                          _Badge(
+                            icon: user.isCloudUser && !usingLocalData
+                                ? Icons.cloud_done_outlined
+                                : Icons.cloud_off_outlined,
+                            label: user.isCloudUser && !usingLocalData
+                                ? 'Firebase account'
+                                : 'Local account',
                           ),
                         ],
                       ),
@@ -156,11 +174,26 @@ class _AccountTab extends StatelessWidget {
         _Section(
           title: 'Account status',
           child: Column(
-            children: const [
-              _RowLine(label: 'Plan', value: 'Demo'),
-              _RowLine(label: 'Sync', value: 'Mock local mode'),
-              _RowLine(label: 'Security', value: 'Password login (mock)'),
-              _RowLine(label: 'Data source', value: 'Preloaded mock dataset'),
+            children: [
+              const _RowLine(label: 'Plan', value: 'Demo'),
+              _RowLine(
+                label: 'Sync',
+                value: user.isCloudUser && !usingLocalData
+                    ? 'Firebase Cloud Firestore'
+                    : 'Mock local mode',
+              ),
+              _RowLine(
+                label: 'Security',
+                value: user.isCloudUser
+                    ? 'Firebase email/password'
+                    : 'Password login (mock)',
+              ),
+              _RowLine(
+                label: 'Data source',
+                value: user.isCloudUser && !usingLocalData
+                    ? 'Cloud account dataset'
+                    : 'Preloaded mock dataset',
+              ),
             ],
           ),
         ),
@@ -168,10 +201,23 @@ class _AccountTab extends StatelessWidget {
         _Section(
           title: 'Connected services',
           child: Column(
-            children: const [
-              _RowLine(label: 'Cloud backup', value: 'Not connected'),
-              _RowLine(label: 'Receipt OCR API', value: 'Demo integration'),
-              _RowLine(label: 'Speech recognition', value: 'Demo integration'),
+            children: [
+              _RowLine(
+                label: 'Cloud backup',
+                value: user.isCloudUser && !usingLocalData
+                    ? 'Connected'
+                    : firebaseEnabled
+                    ? 'Available, using local fallback'
+                    : 'Not configured',
+              ),
+              const _RowLine(
+                label: 'Receipt OCR API',
+                value: 'Demo integration',
+              ),
+              const _RowLine(
+                label: 'Speech recognition',
+                value: 'Demo integration',
+              ),
             ],
           ),
         ),
@@ -191,7 +237,8 @@ class _PreferencesTabContainer extends StatefulWidget {
   const _PreferencesTabContainer();
 
   @override
-  State<_PreferencesTabContainer> createState() => _PreferencesTabContainerState();
+  State<_PreferencesTabContainer> createState() =>
+      _PreferencesTabContainerState();
 }
 
 class _PreferencesTabContainerState extends State<_PreferencesTabContainer> {
@@ -211,10 +258,7 @@ class _PreferencesTabContainerState extends State<_PreferencesTabContainer> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Theme mode',
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
+              Text('Theme mode', style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 6),
               Text(
                 'Choose how CarLog follows device appearance.',
@@ -236,10 +280,7 @@ class _PreferencesTabContainerState extends State<_PreferencesTabContainer> {
                     value: ThemeMode.light,
                     child: Text('Light'),
                   ),
-                  DropdownMenuItem(
-                    value: ThemeMode.dark,
-                    child: Text('Dark'),
-                  ),
+                  DropdownMenuItem(value: ThemeMode.dark, child: Text('Dark')),
                 ],
                 onChanged: (value) {
                   if (value != null) {
@@ -338,7 +379,9 @@ class _DeveloperTabContainerState extends State<_DeveloperTabContainer> {
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('UI health check: all demo modules passed.'),
+                      content: Text(
+                        'UI health check: all demo modules passed.',
+                      ),
                     ),
                   );
                 },
@@ -381,10 +424,7 @@ class _DeveloperTabContainerState extends State<_DeveloperTabContainer> {
 }
 
 class _Section extends StatelessWidget {
-  const _Section({
-    required this.title,
-    required this.child,
-  });
+  const _Section({required this.title, required this.child});
 
   final String title;
   final Widget child;
@@ -393,18 +433,13 @@ class _Section extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            Text(title, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             child,
           ],
@@ -415,10 +450,7 @@ class _Section extends StatelessWidget {
 }
 
 class _RowLine extends StatelessWidget {
-  const _RowLine({
-    required this.label,
-    required this.value,
-  });
+  const _RowLine({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -433,15 +465,15 @@ class _RowLine extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           Text(
             value,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -450,10 +482,7 @@ class _RowLine extends StatelessWidget {
 }
 
 class _Badge extends StatelessWidget {
-  const _Badge({
-    required this.icon,
-    required this.label,
-  });
+  const _Badge({required this.icon, required this.label});
 
   final IconData icon;
   final String label;
@@ -475,9 +504,9 @@ class _Badge extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: scheme.onPrimaryContainer,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: scheme.onPrimaryContainer,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),

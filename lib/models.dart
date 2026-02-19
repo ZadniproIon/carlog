@@ -1,11 +1,20 @@
 import 'package:flutter/material.dart';
 
-enum ExpenseCategory {
-  fuel,
-  service,
-  insurance,
-  parts,
-  other,
+enum ExpenseCategory { fuel, service, insurance, parts, other }
+
+ExpenseCategory expenseCategoryFromKey(String value) {
+  switch (value.toLowerCase().trim()) {
+    case 'fuel':
+      return ExpenseCategory.fuel;
+    case 'service':
+      return ExpenseCategory.service;
+    case 'insurance':
+      return ExpenseCategory.insurance;
+    case 'parts':
+      return ExpenseCategory.parts;
+    default:
+      return ExpenseCategory.other;
+  }
 }
 
 String expenseCategoryLabel(ExpenseCategory category) {
@@ -58,6 +67,32 @@ class Vehicle {
   final int mileage;
 
   String get displayName => '$brand $model';
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'brand': brand,
+      'model': model,
+      'year': year,
+      'engine': engine,
+      'vin': vin,
+      'mileage': mileage,
+    };
+  }
+
+  factory Vehicle.fromMap(Map<String, dynamic> map) {
+    return Vehicle(
+      id: (map['id'] as String?)?.trim().isNotEmpty == true
+          ? map['id'] as String
+          : DateTime.now().millisecondsSinceEpoch.toString(),
+      brand: (map['brand'] as String?)?.trim() ?? 'Unknown brand',
+      model: (map['model'] as String?)?.trim() ?? 'Unknown model',
+      year: _intFrom(map['year'], fallback: DateTime.now().year),
+      engine: (map['engine'] as String?)?.trim() ?? 'Unknown engine',
+      vin: (map['vin'] as String?)?.trim() ?? 'N/A',
+      mileage: _intFrom(map['mileage']),
+    );
+  }
 }
 
 class CarExpense {
@@ -78,6 +113,32 @@ class CarExpense {
   final String description;
   final int mileage;
   final String vehicleId;
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'amount': amount,
+      'category': category.name,
+      'dateMs': date.millisecondsSinceEpoch,
+      'description': description,
+      'mileage': mileage,
+      'vehicleId': vehicleId,
+    };
+  }
+
+  factory CarExpense.fromMap(Map<String, dynamic> map) {
+    return CarExpense(
+      id: (map['id'] as String?)?.trim().isNotEmpty == true
+          ? map['id'] as String
+          : DateTime.now().millisecondsSinceEpoch.toString(),
+      amount: _doubleFrom(map['amount']),
+      category: expenseCategoryFromKey((map['category'] ?? 'other').toString()),
+      date: _dateFrom(map['dateMs'] ?? map['date'], fallback: DateTime.now()),
+      description: (map['description'] as String?)?.trim() ?? 'Car expense',
+      mileage: _intFrom(map['mileage']),
+      vehicleId: (map['vehicleId'] as String?)?.trim() ?? '',
+    );
+  }
 }
 
 class MaintenanceReminder {
@@ -96,6 +157,34 @@ class MaintenanceReminder {
   final DateTime? dueDate;
   final int? dueMileage;
   final String vehicleId;
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'dueDateMs': dueDate?.millisecondsSinceEpoch,
+      'dueMileage': dueMileage,
+      'vehicleId': vehicleId,
+    };
+  }
+
+  factory MaintenanceReminder.fromMap(Map<String, dynamic> map) {
+    return MaintenanceReminder(
+      id: (map['id'] as String?)?.trim().isNotEmpty == true
+          ? map['id'] as String
+          : DateTime.now().millisecondsSinceEpoch.toString(),
+      title: (map['title'] as String?)?.trim() ?? 'Reminder',
+      description: (map['description'] as String?)?.trim() ?? '',
+      dueDate: map['dueDateMs'] == null && map['dueDate'] == null
+          ? null
+          : _dateFrom(map['dueDateMs'] ?? map['dueDate']),
+      dueMileage: map['dueMileage'] == null
+          ? null
+          : _intFrom(map['dueMileage']),
+      vehicleId: (map['vehicleId'] as String?)?.trim() ?? '',
+    );
+  }
 }
 
 class MockAuthUser {
@@ -103,11 +192,15 @@ class MockAuthUser {
     required this.name,
     required this.email,
     this.isGuest = false,
+    this.uid,
+    this.isCloudUser = false,
   });
 
   final String name;
   final String email;
   final bool isGuest;
+  final String? uid;
+  final bool isCloudUser;
 
   factory MockAuthUser.guest() {
     return const MockAuthUser(
@@ -116,4 +209,57 @@ class MockAuthUser {
       isGuest: true,
     );
   }
+}
+
+int _intFrom(Object? value, {int fallback = 0}) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) {
+    final parsed = int.tryParse(value.trim());
+    if (parsed != null) {
+      return parsed;
+    }
+  }
+  return fallback;
+}
+
+double _doubleFrom(Object? value, {double fallback = 0}) {
+  if (value is double) return value;
+  if (value is num) return value.toDouble();
+  if (value is String) {
+    final parsed = double.tryParse(value.trim().replaceAll(',', '.'));
+    if (parsed != null) {
+      return parsed;
+    }
+  }
+  return fallback;
+}
+
+DateTime _dateFrom(Object? value, {DateTime? fallback}) {
+  if (value is DateTime) {
+    return value;
+  }
+  if (value is int) {
+    return DateTime.fromMillisecondsSinceEpoch(value);
+  }
+  if (value is num) {
+    return DateTime.fromMillisecondsSinceEpoch(value.toInt());
+  }
+  if (value is String) {
+    final parsed = DateTime.tryParse(value);
+    if (parsed != null) {
+      return parsed;
+    }
+  }
+  if (value != null) {
+    final candidate = value.toString();
+    final timestampMatch = RegExp(r'seconds=(\d+)').firstMatch(candidate);
+    if (timestampMatch != null) {
+      final seconds = int.tryParse(timestampMatch.group(1)!);
+      if (seconds != null) {
+        return DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+      }
+    }
+  }
+  return fallback ?? DateTime.now();
 }

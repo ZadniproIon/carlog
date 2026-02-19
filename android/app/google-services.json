@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "196433340076",
+    "project_id": "carlog-nutzu",
+    "storage_bucket": "carlog-nutzu.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:196433340076:android:11b71d3fa7a0d02717e109",
+        "android_client_info": {
+          "package_name": "com.example.carlog"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA320Jffo0Uc3sNz2dygx1_guLSsJW_0JA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

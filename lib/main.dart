@@ -1,7 +1,13 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
-import 'models.dart';
+import 'firebase_options.dart';
 import 'mock_data.dart';
+import 'models.dart';
 import 'screens/add_expense_screen.dart';
 import 'screens/add_vehicle_screen.dart';
 import 'screens/auth_screen.dart';
@@ -9,12 +15,36 @@ import 'screens/dashboard_screen.dart';
 import 'screens/expenses_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/vehicles_screen.dart';
+import 'services/carlog_repository.dart';
 import 'services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await NotificationService.init();
-  runApp(const MyApp());
+
+  final firebaseEnabled = await _initializeFirebaseSafely();
+  runApp(MyApp(firebaseEnabled: firebaseEnabled));
+}
+
+Future<bool> _initializeFirebaseSafely() async {
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    return true;
+  } catch (primaryError) {
+    // Secondary fallback keeps local/mock mode usable on unsupported setups.
+    try {
+      await Firebase.initializeApp();
+      return true;
+    } catch (fallbackError) {
+      debugPrint(
+        'Firebase not configured yet, using mock mode: '
+        '$primaryError | $fallbackError',
+      );
+      return false;
+    }
+  }
 }
 
 class _StoredAccount {
@@ -30,7 +60,9 @@ class _StoredAccount {
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  const MyApp({super.key, this.firebaseEnabled = false});
+
+  final bool firebaseEnabled;
 
   @override
   State<MyApp> createState() => _MyAppState();
@@ -39,6 +71,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   ThemeMode _themeMode = ThemeMode.system;
   MockAuthUser? _currentUser;
+  late final CarlogRepository _repository;
 
   final Map<String, _StoredAccount> _accounts = {
     'driver@carlog.app': const _StoredAccount(
@@ -48,11 +81,53 @@ class _MyAppState extends State<MyApp> {
     ),
   };
 
+  @override
+  void initState() {
+    super.initState();
+
+    _repository = CarlogRepository(
+      firestore: widget.firebaseEnabled ? FirebaseFirestore.instance : null,
+    );
+
+    if (widget.firebaseEnabled) {
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser != null) {
+        _currentUser = _mapFirebaseUser(firebaseUser);
+      }
+    }
+  }
+
   void _onThemeModeChanged(ThemeMode mode) {
     setState(() => _themeMode = mode);
   }
 
   Future<String?> _handleLogin(String email, String password) async {
+    if (widget.firebaseEnabled) {
+      try {
+        final credentials = await FirebaseAuth.instance
+            .signInWithEmailAndPassword(email: email, password: password);
+
+        final user = credentials.user;
+        if (user == null) {
+          return 'Could not sign in right now.';
+        }
+
+        if (!mounted) {
+          return null;
+        }
+
+        setState(() {
+          _currentUser = _mapFirebaseUser(user, fallbackEmail: email);
+        });
+
+        return null;
+      } on FirebaseAuthException catch (error) {
+        return _firebaseAuthError(error);
+      } catch (_) {
+        return 'Could not sign in right now.';
+      }
+    }
+
     await Future<void>.delayed(const Duration(milliseconds: 350));
 
     final key = email.toLowerCase();
@@ -73,6 +148,39 @@ class _MyAppState extends State<MyApp> {
     String email,
     String password,
   ) async {
+    if (widget.firebaseEnabled) {
+      try {
+        final credentials = await FirebaseAuth.instance
+            .createUserWithEmailAndPassword(email: email, password: password);
+
+        final user = credentials.user;
+        if (user == null) {
+          return 'Could not create account right now.';
+        }
+
+        if (name.trim().isNotEmpty) {
+          await user.updateDisplayName(name.trim());
+        }
+        await user.reload();
+
+        final refreshedUser = FirebaseAuth.instance.currentUser ?? user;
+
+        if (!mounted) {
+          return null;
+        }
+
+        setState(() {
+          _currentUser = _mapFirebaseUser(refreshedUser, fallbackEmail: email);
+        });
+
+        return null;
+      } on FirebaseAuthException catch (error) {
+        return _firebaseAuthError(error);
+      } catch (_) {
+        return 'Could not create account right now.';
+      }
+    }
+
     await Future<void>.delayed(const Duration(milliseconds: 350));
 
     final key = email.toLowerCase();
@@ -100,9 +208,85 @@ class _MyAppState extends State<MyApp> {
   }
 
   void _logout() {
+    unawaited(_performLogout());
+  }
+
+  Future<void> _performLogout() async {
+    final previousUser = _currentUser;
+
+    if (widget.firebaseEnabled &&
+        previousUser != null &&
+        !previousUser.isGuest) {
+      try {
+        await FirebaseAuth.instance.signOut();
+      } catch (_) {
+        // Sign out failure should not block local app logout.
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
       _currentUser = null;
     });
+  }
+
+  MockAuthUser _mapFirebaseUser(User user, {String? fallbackEmail}) {
+    final resolvedEmail = user.email ?? fallbackEmail ?? 'driver@carlog.app';
+    final rawName = user.displayName?.trim() ?? '';
+
+    return MockAuthUser(
+      name: rawName.isNotEmpty ? rawName : _nameFromEmail(resolvedEmail),
+      email: resolvedEmail,
+      uid: user.uid,
+      isCloudUser: true,
+    );
+  }
+
+  String _nameFromEmail(String email) {
+    final localPart = email.split('@').first;
+    if (localPart.trim().isEmpty) {
+      return 'Driver';
+    }
+
+    final words = localPart
+        .replaceAll(RegExp(r'[._-]+'), ' ')
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .map(
+          (part) =>
+              '${part[0].toUpperCase()}${part.substring(1).toLowerCase()}',
+        )
+        .toList();
+
+    if (words.isEmpty) {
+      return 'Driver';
+    }
+
+    return words.join(' ');
+  }
+
+  String _firebaseAuthError(FirebaseAuthException error) {
+    switch (error.code) {
+      case 'invalid-email':
+        return 'Please use a valid email address.';
+      case 'user-not-found':
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'Invalid email or password.';
+      case 'email-already-in-use':
+        return 'An account with this email already exists.';
+      case 'weak-password':
+        return 'Use a stronger password (at least 6 characters).';
+      case 'network-request-failed':
+        return 'Network error. Check your connection and try again.';
+      case 'too-many-requests':
+        return 'Too many attempts. Try again in a few minutes.';
+      default:
+        return error.message ?? 'Authentication failed. Try again.';
+    }
   }
 
   @override
@@ -163,6 +347,7 @@ class _MyAppState extends State<MyApp> {
               onLogin: _handleLogin,
               onSignUp: _handleSignUp,
               onEnterGuest: _enterGuestMode,
+              firebaseEnabled: widget.firebaseEnabled,
             )
           : HomeShell(
               key: ValueKey<String>(_currentUser!.email),
@@ -170,6 +355,8 @@ class _MyAppState extends State<MyApp> {
               onThemeModeChanged: _onThemeModeChanged,
               currentUser: _currentUser!,
               onLogout: _logout,
+              repository: _repository,
+              firebaseEnabled: widget.firebaseEnabled,
             ),
     );
   }
@@ -182,12 +369,16 @@ class HomeShell extends StatefulWidget {
     required this.onThemeModeChanged,
     required this.currentUser,
     required this.onLogout,
+    required this.repository,
+    required this.firebaseEnabled,
   });
 
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
   final MockAuthUser currentUser;
   final VoidCallback onLogout;
+  final CarlogRepository repository;
+  final bool firebaseEnabled;
 
   @override
   State<HomeShell> createState() => _HomeShellState();
@@ -198,25 +389,115 @@ class _HomeShellState extends State<HomeShell> {
   late List<Vehicle> _vehicles;
   late List<CarExpense> _expenses;
   late List<MaintenanceReminder> _reminders;
+  bool _usingLocalData = true;
 
   @override
   void initState() {
     super.initState();
+
     _vehicles = List<Vehicle>.from(mockVehicles);
-    _expenses = List<CarExpense>.from(mockExpenses);
+    _expenses = List<CarExpense>.from(mockExpenses)
+      ..sort((a, b) => b.date.compareTo(a.date));
     _reminders = List<MaintenanceReminder>.from(mockReminders);
+
+    unawaited(_loadInitialData());
+  }
+
+  Future<void> _loadInitialData() async {
+    final snapshot = await widget.repository.loadInitialData(
+      user: widget.currentUser,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _vehicles = snapshot.vehicles;
+      _expenses = snapshot.expenses;
+      _reminders = snapshot.reminders;
+      _usingLocalData = snapshot.isLocalOnly;
+    });
   }
 
   void _addExpense(CarExpense expense) {
     setState(() {
       _expenses.insert(0, expense);
     });
+
+    unawaited(_syncExpense(expense));
+  }
+
+  Future<void> _syncExpense(CarExpense expense) async {
+    try {
+      await widget.repository.addExpense(
+        user: widget.currentUser,
+        expense: expense,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _usingLocalData = !widget.currentUser.isCloudUser;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Expense saved locally. Cloud sync is currently unavailable.',
+          ),
+        ),
+      );
+      setState(() {
+        _usingLocalData = true;
+      });
+    }
   }
 
   void _addVehicle(Vehicle vehicle) {
     setState(() {
       _vehicles.add(vehicle);
     });
+
+    unawaited(_syncVehicle(vehicle));
+  }
+
+  Future<void> _syncVehicle(Vehicle vehicle) async {
+    try {
+      await widget.repository.addVehicle(
+        user: widget.currentUser,
+        vehicle: vehicle,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _usingLocalData = !widget.currentUser.isCloudUser;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Vehicle saved locally. Cloud sync is currently unavailable.',
+          ),
+        ),
+      );
+      setState(() {
+        _usingLocalData = true;
+      });
+    }
   }
 
   Future<void> _openAddVehicleFlow() async {
@@ -335,6 +616,8 @@ class _HomeShellState extends State<HomeShell> {
         themeMode: widget.themeMode,
         onThemeModeChanged: widget.onThemeModeChanged,
         onLogout: widget.onLogout,
+        firebaseEnabled: widget.firebaseEnabled,
+        usingLocalData: _usingLocalData,
       ),
     ];
 

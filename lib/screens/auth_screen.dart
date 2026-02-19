@@ -6,12 +6,14 @@ class AuthScreen extends StatefulWidget {
     required this.onLogin,
     required this.onSignUp,
     required this.onEnterGuest,
+    this.firebaseEnabled = false,
   });
 
   final Future<String?> Function(String email, String password) onLogin;
   final Future<String?> Function(String name, String email, String password)
-      onSignUp;
+  onSignUp;
   final VoidCallback onEnterGuest;
+  final bool firebaseEnabled;
 
   @override
   State<AuthScreen> createState() => _AuthScreenState();
@@ -60,15 +62,15 @@ class _AuthScreenState extends State<AuthScreen> {
                             onLongPress: _showHiddenGuestEntry,
                             child: CircleAvatar(
                               radius: 34,
-                              backgroundColor: Theme.of(context)
-                                  .colorScheme
-                                  .primaryContainer,
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.primaryContainer,
                               child: Icon(
                                 Icons.directions_car_filled,
                                 size: 34,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onPrimaryContainer,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onPrimaryContainer,
                               ),
                             ),
                           ),
@@ -201,9 +203,11 @@ class _AuthScreenState extends State<AuthScreen> {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : Icon(_isLogin
-                                  ? Icons.login
-                                  : Icons.person_add_alt_1),
+                              : Icon(
+                                  _isLogin
+                                      ? Icons.login
+                                      : Icons.person_add_alt_1,
+                                ),
                           label: Text(_isLogin ? 'Log in' : 'Create account'),
                         ),
                         const SizedBox(height: 8),
@@ -214,9 +218,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          _isLogin
-                              ? 'Tip: demo account email is driver@carlog.app'
-                              : 'This is a mock account system for demo use.',
+                          _authHintText(),
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
@@ -230,6 +232,18 @@ class _AuthScreenState extends State<AuthScreen> {
         ),
       ),
     );
+  }
+
+  String _authHintText() {
+    if (widget.firebaseEnabled) {
+      return _isLogin
+          ? 'Firebase auth enabled. You can still use guest mode for demo mock data.'
+          : 'Creates a Firebase account. Guest mode stays in local mock mode.';
+    }
+
+    return _isLogin
+        ? 'Tip: demo account email is driver@carlog.app'
+        : 'This is a mock account system for demo use.';
   }
 
   Future<void> _submit() async {
@@ -260,9 +274,9 @@ class _AuthScreenState extends State<AuthScreen> {
     });
 
     if (error != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error)));
     }
   }
 
