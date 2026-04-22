@@ -52,10 +52,14 @@ class CarlogAppTheme {
       textTheme: textTheme,
       appBarTheme: AppBarTheme(
         backgroundColor: colors.bg,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
+        centerTitle: true,
+        toolbarHeight: 72,
+        titleSpacing: 20,
         iconTheme: IconThemeData(color: colors.textPrimary),
-        titleTextStyle: CarlogTextStyles.title.copyWith(
+        titleTextStyle: CarlogTextStyles.section.copyWith(
           color: colors.textPrimary,
         ),
       ),
@@ -128,4 +132,3 @@ class CarlogAppTheme {
     );
   }
 }
-

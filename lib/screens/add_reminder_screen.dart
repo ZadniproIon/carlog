@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../widgets/spark_top_bar.dart';
 
 import '../models.dart';
 
@@ -56,7 +57,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: SparkTopBar(
         title: Text(
           widget.initialReminder == null ? 'Add reminder' : 'Edit reminder',
         ),
@@ -194,4 +195,3 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
         '${date.year}';
   }
 }
-

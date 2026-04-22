@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../widgets/spark_top_bar.dart';
 
 import '../models.dart';
 import '../widgets/expense_list_tile.dart';
@@ -41,7 +42,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     final selectedCount = _selectedExpenseIds.length;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: SparkTopBar(
         title: Text(_isSelectionMode ? '$selectedCount selected' : 'Expenses'),
         actions: _isSelectionMode
             ? [
@@ -229,4 +230,3 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 extension _FirstOrNull<T> on Iterable<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
-

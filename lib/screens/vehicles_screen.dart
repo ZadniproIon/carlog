@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../widgets/spark_top_bar.dart';
 
 import '../models.dart';
+import '../widgets/demo_brand_logo.dart';
 import '../widgets/category_chart.dart';
 import '../widgets/expense_list_tile.dart';
 import '../widgets/summary_card.dart';
@@ -12,6 +14,7 @@ class VehiclesScreen extends StatelessWidget {
     required this.vehicles,
     required this.expenses,
     required this.reminders,
+    required this.demoModeEnabled,
     required this.onAddVehicle,
     required this.onEditVehicle,
     required this.onDeleteVehicle,
@@ -25,6 +28,7 @@ class VehiclesScreen extends StatelessWidget {
   final List<Vehicle> vehicles;
   final List<CarExpense> expenses;
   final List<MaintenanceReminder> reminders;
+  final bool demoModeEnabled;
   final VoidCallback onAddVehicle;
   final ValueChanged<Vehicle> onEditVehicle;
   final ValueChanged<String> onDeleteVehicle;
@@ -37,7 +41,7 @@ class VehiclesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: SparkTopBar(
         title: const Text('Vehicles'),
         actions: [
           IconButton(
@@ -63,6 +67,7 @@ class VehiclesScreen extends StatelessWidget {
                           vehicle: vehicle,
                           expenses: expenses,
                           reminders: reminders,
+                          demoModeEnabled: demoModeEnabled,
                           onEditVehicle: onEditVehicle,
                           onDeleteVehicle: onDeleteVehicle,
                           onAddReminder: onAddReminder,
@@ -87,7 +92,10 @@ class VehiclesScreen extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              const Icon(LucideIcons.car),
+                              DemoBrandLogo(
+                                brand: vehicle.brand,
+                                demoModeEnabled: demoModeEnabled,
+                              ),
                               const SizedBox(width: 8),
                               Text(
                                 vehicle.displayName,
@@ -168,6 +176,7 @@ class VehicleDetailScreen extends StatelessWidget {
     required this.vehicle,
     required this.expenses,
     required this.reminders,
+    required this.demoModeEnabled,
     required this.onEditVehicle,
     required this.onDeleteVehicle,
     required this.onAddReminder,
@@ -180,6 +189,7 @@ class VehicleDetailScreen extends StatelessWidget {
   final Vehicle vehicle;
   final List<CarExpense> expenses;
   final List<MaintenanceReminder> reminders;
+  final bool demoModeEnabled;
   final ValueChanged<Vehicle> onEditVehicle;
   final ValueChanged<String> onDeleteVehicle;
   final ValueChanged<String> onAddReminder;
@@ -221,7 +231,7 @@ class VehicleDetailScreen extends StatelessWidget {
         .length;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: SparkTopBar(
         title: Text('${vehicle.displayName} - ${vehicle.year}'),
         actions: [
           IconButton(
@@ -251,7 +261,10 @@ class VehicleDetailScreen extends StatelessWidget {
           children: [
             _SectionCard(
               title: 'Header',
-              icon: LucideIcons.car,
+              leading: DemoBrandLogo(
+                brand: vehicle.brand,
+                demoModeEnabled: demoModeEnabled,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -393,12 +406,14 @@ class VehicleDetailScreen extends StatelessWidget {
 class _SectionCard extends StatelessWidget {
   const _SectionCard({
     required this.title,
-    required this.icon,
+    this.icon,
+    this.leading,
     required this.child,
   });
 
   final String title;
-  final IconData icon;
+  final IconData? icon;
+  final Widget? leading;
   final Widget child;
 
   @override
@@ -413,7 +428,10 @@ class _SectionCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon),
+                if (leading != null)
+                  leading!
+                else if (icon != null)
+                  Icon(icon!),
                 const SizedBox(width: 8),
                 Text(title, style: Theme.of(context).textTheme.titleMedium),
               ],

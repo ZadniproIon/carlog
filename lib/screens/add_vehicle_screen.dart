@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../widgets/spark_top_bar.dart';
 
 import '../models.dart';
 
@@ -50,7 +51,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: SparkTopBar(
         title: Text(
           widget.initialVehicle == null ? 'Add vehicle' : 'Edit vehicle',
         ),
@@ -172,4 +173,3 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     Navigator.of(context).pop(vehicle);
   }
 }
-

@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../widgets/spark_top_bar.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models.dart';
@@ -136,7 +137,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         Navigator.of(context).pop();
       },
       child: Scaffold(
-        appBar: AppBar(
+        appBar: SparkTopBar(
           title: Text(
             widget.initialExpense == null ? 'Add expense' : 'Edit expense',
           ),
@@ -820,4 +821,3 @@ class _VoiceControlButton extends StatelessWidget {
 extension _FirstOrNull<T> on Iterable<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
-

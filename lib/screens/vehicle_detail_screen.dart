@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../widgets/spark_top_bar.dart';
 
 import '../models.dart';
 import '../widgets/category_chart.dart';
@@ -48,7 +49,7 @@ class VehicleDetailScreen extends StatelessWidget {
     final aiInsight = _getVehicleAiInsight(vehicle);
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: SparkTopBar(
         title: Text('${vehicle.displayName} · ${vehicle.year}'),
       ),
       body: SingleChildScrollView(
@@ -404,5 +405,6 @@ class _VehicleMaintenanceList extends StatelessWidget {
     return 'No due information';
   }
 }
+
 
 

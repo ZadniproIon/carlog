@@ -994,6 +994,7 @@ class _HomeShellState extends State<HomeShell> {
         vehicles: _vehicles,
         expenses: _expenses,
         reminders: _reminders,
+        demoModeEnabled: _demoModeEnabled,
         onAddVehicle: _openAddVehicleFlow,
         onEditVehicle: _openEditVehicleFlow,
         onDeleteVehicle: (vehicleId) => unawaited(_deleteVehicle(vehicleId)),

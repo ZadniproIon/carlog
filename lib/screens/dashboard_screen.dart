@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../widgets/spark_top_bar.dart';
 
 import '../models.dart';
 import '../widgets/expense_list_tile.dart';
@@ -74,7 +75,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final recentExpenses = filteredExpenses.take(5).toList();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Dashboard')),
+      appBar: SparkTopBar(title: const Text('Dashboard')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         child: Column(
@@ -1412,4 +1413,3 @@ extension _CategoryPeriodLabel on _CategoryPeriod {
 extension _FirstOrNull<T> on Iterable<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
-
