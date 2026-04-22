@@ -33,46 +33,147 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  bool _notificationsEnabled = true;
+  bool _maintenanceRemindersEnabled = true;
+  bool _privacyMode = false;
+  bool _developerLogsEnabled = false;
+  bool _mockFailuresEnabled = false;
+
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 3,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Profile'),
-          actions: [
-            IconButton(
-              tooltip: 'Sign out',
-              onPressed: _confirmLogout,
-              icon: const Icon(LucideIcons.logOut),
-            ),
-          ],
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Account', icon: Icon(LucideIcons.user)),
-              Tab(
-                text: 'Preferences',
-                icon: Icon(LucideIcons.slidersHorizontal),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Profile'),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+        children: [
+          const _SectionTitle('Account'),
+          const SizedBox(height: 8),
+          _MenuGroup(
+            children: [
+              _MenuAccountSummary(
+                title: widget.user.name,
+                subtitle: _accountSubtitle(),
+                initials: _avatarInitials(widget.user.name),
               ),
-              Tab(text: 'Developer', icon: Icon(LucideIcons.code2)),
+              _MenuItem(
+                icon: LucideIcons.edit3,
+                label: 'Edit profile fields',
+                subtitle: 'Name and email',
+                onTap: () => _showEditProfileDialog(context),
+              ),
+              _MenuItem(
+                icon: LucideIcons.logOut,
+                label: 'Sign out',
+                isDestructive: true,
+                onTap: _confirmLogout,
+              ),
             ],
           ),
-        ),
-        body: TabBarView(
-          children: [
-            _AccountTab(
-              user: widget.user,
-              firebaseEnabled: widget.firebaseEnabled,
-              usingLocalData: widget.usingLocalData,
-              demoModeEnabled: widget.demoModeEnabled,
-              onUpdateProfile: widget.onUpdateProfile,
-            ),
-            const _PreferencesTabContainer(),
-            const _DeveloperTabContainer(),
-          ],
-        ),
+          const SizedBox(height: 16),
+          const _SectionTitle('Preferences'),
+          const SizedBox(height: 8),
+          _MenuGroup(
+            children: [
+              _ThemeModeItem(
+                value: widget.themeMode,
+                onChanged: widget.onThemeModeChanged,
+              ),
+              _MenuSwitchItem(
+                icon: LucideIcons.flaskConical,
+                label: 'Demo mode',
+                subtitle: 'Use mock dataset instead of cloud data',
+                value: widget.demoModeEnabled,
+                onChanged: widget.onDemoModeChanged,
+              ),
+              _MenuSwitchItem(
+                icon: LucideIcons.bell,
+                label: 'General notifications',
+                subtitle: 'Expense and account alerts',
+                value: _notificationsEnabled,
+                onChanged: (value) {
+                  setState(() => _notificationsEnabled = value);
+                },
+              ),
+              _MenuSwitchItem(
+                icon: LucideIcons.wrench,
+                label: 'Maintenance reminders',
+                subtitle: 'ITP, oil, tires and inspections',
+                value: _maintenanceRemindersEnabled,
+                onChanged: (value) {
+                  setState(() => _maintenanceRemindersEnabled = value);
+                },
+              ),
+              _MenuSwitchItem(
+                icon: LucideIcons.shield,
+                label: 'Privacy mode',
+                subtitle: 'Hide sensitive values in screenshots',
+                value: _privacyMode,
+                onChanged: (value) {
+                  setState(() => _privacyMode = value);
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const _SectionTitle('Developer'),
+          const SizedBox(height: 8),
+          _MenuGroup(
+            children: [
+              _MenuItem(
+                icon: LucideIcons.bell,
+                label: 'Simulate notifications',
+                subtitle: 'Push 3 local demo notifications',
+                onTap: () {
+                  NotificationService.showDemoNotifications(context);
+                },
+              ),
+              _MenuItem(
+                icon: LucideIcons.play,
+                label: 'Run UI health check',
+                subtitle: 'Show a mock system test result',
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'UI health check: all demo modules passed.',
+                      ),
+                    ),
+                  );
+                },
+              ),
+              _MenuSwitchItem(
+                icon: LucideIcons.terminal,
+                label: 'Enable verbose logs',
+                subtitle: 'Developer-only local log mode',
+                value: _developerLogsEnabled,
+                onChanged: (value) {
+                  setState(() => _developerLogsEnabled = value);
+                },
+              ),
+              _MenuSwitchItem(
+                icon: LucideIcons.bug,
+                label: 'Force mock API failures',
+                subtitle: 'Useful to test error states in demo',
+                value: _mockFailuresEnabled,
+                onChanged: (value) {
+                  setState(() => _mockFailuresEnabled = value);
+                },
+              ),
+            ],
+          ),
+        ],
       ),
     );
+  }
+
+  String _accountSubtitle() {
+    final sync = widget.user.isCloudUser && !widget.usingLocalData
+        ? 'Firebase'
+        : 'Local';
+    final mode = widget.demoModeEnabled ? 'Demo data' : 'Live data';
+    return '${widget.user.email}  |  $sync  |  $mode';
   }
 
   Future<void> _confirmLogout() async {
@@ -100,158 +201,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       widget.onLogout();
     }
   }
-}
-
-class _AccountTab extends StatelessWidget {
-  const _AccountTab({
-    required this.user,
-    required this.firebaseEnabled,
-    required this.usingLocalData,
-    required this.demoModeEnabled,
-    required this.onUpdateProfile,
-  });
-
-  final MockAuthUser user;
-  final bool firebaseEnabled;
-  final bool usingLocalData;
-  final bool demoModeEnabled;
-  final Future<String?> Function(String name, String email) onUpdateProfile;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      children: [
-        Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: scheme.primaryContainer,
-                  child: Text(
-                    _avatarInitials(user.name),
-                    style: TextStyle(
-                      color: scheme.onPrimaryContainer,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user.name,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        user.email,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: [
-                          _Badge(
-                            icon: user.isGuest
-                                ? LucideIcons.userX
-                                : LucideIcons.userCheck,
-                            label: user.isGuest ? 'Guest mode' : 'Signed in',
-                          ),
-                          _Badge(
-                            icon: user.isCloudUser && !usingLocalData
-                                ? LucideIcons.cloud
-                                : LucideIcons.cloudOff,
-                            label: user.isCloudUser && !usingLocalData
-                                ? 'Firebase account'
-                                : 'Local account',
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        FilledButton.icon(
-          onPressed: () => _showEditProfileDialog(context),
-          icon: const Icon(LucideIcons.edit3),
-          label: const Text('Edit profile fields'),
-        ),
-        const SizedBox(height: 12),
-        _Section(
-          title: 'Account status',
-          child: Column(
-            children: [
-              const _RowLine(label: 'Plan', value: 'Demo'),
-              _RowLine(
-                label: 'Sync',
-                value: user.isCloudUser && !usingLocalData
-                    ? 'Firebase Cloud Firestore'
-                    : 'Mock local mode',
-              ),
-              _RowLine(
-                label: 'Security',
-                value: user.isCloudUser
-                    ? 'Firebase email/password'
-                    : 'Password login (mock)',
-              ),
-              _RowLine(
-                label: 'Data source',
-                value: demoModeEnabled
-                    ? 'Demo mode mock dataset'
-                    : user.isCloudUser && !usingLocalData
-                    ? 'Cloud account dataset'
-                    : 'Preloaded mock dataset',
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        _Section(
-          title: 'Connected services',
-          child: Column(
-            children: [
-              _RowLine(
-                label: 'Cloud backup',
-                value: user.isCloudUser && !usingLocalData
-                    ? 'Connected'
-                    : firebaseEnabled
-                    ? 'Available, using local fallback'
-                    : 'Not configured',
-              ),
-              const _RowLine(
-                label: 'Receipt OCR API',
-                value: 'Demo integration',
-              ),
-              const _RowLine(
-                label: 'Speech recognition',
-                value: 'Demo integration',
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 
   Future<void> _showEditProfileDialog(BuildContext context) async {
-    final nameController = TextEditingController(text: user.name);
-    final emailController = TextEditingController(text: user.email);
+    final nameController = TextEditingController(text: widget.user.name);
+    final emailController = TextEditingController(text: widget.user.email);
     final formKey = GlobalKey<FormState>();
     bool isLoading = false;
 
@@ -307,7 +260,7 @@ class _AccountTab extends StatelessWidget {
                             return;
                           }
                           setState(() => isLoading = true);
-                          final error = await onUpdateProfile(
+                          final error = await widget.onUpdateProfile(
                             nameController.text.trim(),
                             emailController.text.trim(),
                           );
@@ -352,261 +305,91 @@ String _avatarInitials(String name) {
   return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
 }
 
-class _PreferencesTabContainer extends StatefulWidget {
-  const _PreferencesTabContainer();
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
 
-  @override
-  State<_PreferencesTabContainer> createState() =>
-      _PreferencesTabContainerState();
-}
-
-class _PreferencesTabContainerState extends State<_PreferencesTabContainer> {
-  bool _notificationsEnabled = true;
-  bool _maintenanceRemindersEnabled = true;
-  bool _privacyMode = false;
+  final String text;
 
   @override
   Widget build(BuildContext context) {
-    final parent = context.findAncestorStateOfType<_ProfileScreenState>()!;
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      children: [
-        _Section(
-          title: 'Appearance',
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Theme mode', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 6),
-              Text(
-                'Choose how CarLog follows device appearance.',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<ThemeMode>(
-                initialValue: parent.widget.themeMode,
-                decoration: const InputDecoration(
-                  labelText: 'Mode',
-                  prefixIcon: Icon(LucideIcons.palette),
-                ),
-                items: const [
-                  DropdownMenuItem(
-                    value: ThemeMode.system,
-                    child: Text('System'),
-                  ),
-                  DropdownMenuItem(
-                    value: ThemeMode.light,
-                    child: Text('Light'),
-                  ),
-                  DropdownMenuItem(value: ThemeMode.dark, child: Text('Dark')),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    parent.widget.onThemeModeChanged(value);
-                  }
-                },
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        _Section(
-          title: 'Data mode',
-          child: SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Demo mode'),
-            subtitle: const Text(
-              'Use mock dataset instead of account cloud data',
-            ),
-            value: parent.widget.demoModeEnabled,
-            onChanged: parent.widget.onDemoModeChanged,
-            secondary: const Icon(LucideIcons.flaskConical),
-          ),
-        ),
-        const SizedBox(height: 12),
-        _Section(
-          title: 'Notifications',
-          child: Column(
-            children: [
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('General notifications'),
-                subtitle: const Text('Expense and account alerts'),
-                value: _notificationsEnabled,
-                onChanged: (value) {
-                  setState(() => _notificationsEnabled = value);
-                },
-                secondary: const Icon(LucideIcons.bell),
-              ),
-              const Divider(height: 0),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Maintenance reminders'),
-                subtitle: const Text('ITP, oil, tires and inspections'),
-                value: _maintenanceRemindersEnabled,
-                onChanged: (value) {
-                  setState(() => _maintenanceRemindersEnabled = value);
-                },
-                secondary: const Icon(LucideIcons.wrench),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        _Section(
-          title: 'Privacy',
-          child: SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Privacy mode'),
-            subtitle: const Text('Hide sensitive values in screenshots'),
-            value: _privacyMode,
-            onChanged: (value) {
-              setState(() => _privacyMode = value);
-            },
-            secondary: const Icon(LucideIcons.shield),
-          ),
-        ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Text(text, style: Theme.of(context).textTheme.titleMedium),
     );
   }
 }
 
-class _DeveloperTabContainer extends StatefulWidget {
-  const _DeveloperTabContainer();
+class _MenuGroup extends StatelessWidget {
+  const _MenuGroup({required this.children});
 
-  @override
-  State<_DeveloperTabContainer> createState() => _DeveloperTabContainerState();
-}
-
-class _DeveloperTabContainerState extends State<_DeveloperTabContainer> {
-  bool _developerLogsEnabled = false;
-  bool _mockFailuresEnabled = false;
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      children: [
-        _Section(
-          title: 'Testing actions',
-          child: Column(
-            children: [
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(LucideIcons.bell),
-                title: const Text('Simulate notifications'),
-                subtitle: const Text('Push 3 local demo notifications'),
-                trailing: const Icon(LucideIcons.chevronRight),
-                onTap: () {
-                  NotificationService.showDemoNotifications(context);
-                },
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (int i = 0; i < children.length; i++) ...[
+            children[i],
+            if (i != children.length - 1)
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: Theme.of(context).dividerColor,
               ),
-              const Divider(height: 0),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(LucideIcons.play),
-                title: const Text('Run UI health check'),
-                subtitle: const Text('Show a mock system test result'),
-                trailing: const Icon(LucideIcons.chevronRight),
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'UI health check: all demo modules passed.',
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        _Section(
-          title: 'Debug toggles',
-          child: Column(
-            children: [
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Enable verbose logs'),
-                subtitle: const Text('Developer-only local log mode'),
-                value: _developerLogsEnabled,
-                onChanged: (value) {
-                  setState(() => _developerLogsEnabled = value);
-                },
-                secondary: const Icon(LucideIcons.terminal),
-              ),
-              const Divider(height: 0),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Force mock API failures'),
-                subtitle: const Text('Useful to test error states in demo'),
-                value: _mockFailuresEnabled,
-                onChanged: (value) {
-                  setState(() => _mockFailuresEnabled = value);
-                },
-                secondary: const Icon(LucideIcons.bug),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.child});
-
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            child,
           ],
-        ),
+        ],
       ),
     );
   }
 }
 
-class _RowLine extends StatelessWidget {
-  const _RowLine({required this.label, required this.value});
+class _MenuAccountSummary extends StatelessWidget {
+  const _MenuAccountSummary({
+    required this.title,
+    required this.subtitle,
+    required this.initials,
+  });
 
-  final String label;
-  final String value;
+  final String title;
+  final String subtitle;
+  final String initials;
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       child: Row(
         children: [
-          Expanded(
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: scheme.primaryContainer,
             child: Text(
-              label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              initials,
+              style: TextStyle(
+                color: scheme.onPrimaryContainer,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
-          Text(
-            value,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 4),
+                Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+              ],
+            ),
           ),
         ],
       ),
@@ -614,31 +397,156 @@ class _RowLine extends StatelessWidget {
   }
 }
 
-class _Badge extends StatelessWidget {
-  const _Badge({required this.icon, required this.label});
+class _MenuItem extends StatelessWidget {
+  const _MenuItem({
+    required this.icon,
+    required this.label,
+    this.subtitle,
+    this.onTap,
+    this.isDestructive = false,
+  });
 
   final IconData icon;
   final String label;
+  final String? subtitle;
+  final VoidCallback? onTap;
+  final bool isDestructive;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: scheme.primaryContainer,
-        borderRadius: BorderRadius.circular(999),
+    final textColor = isDestructive
+        ? Theme.of(context).colorScheme.error
+        : Theme.of(context).colorScheme.onSurface;
+    final muted = Theme.of(context).textTheme.bodySmall?.color;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(icon, color: textColor, size: 20),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label, style: TextStyle(color: textColor)),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle!,
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.copyWith(color: muted),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              Icon(LucideIcons.chevronRight, size: 18, color: muted),
+            ],
+          ),
+        ),
       ),
+    );
+  }
+}
+
+class _MenuSwitchItem extends StatelessWidget {
+  const _MenuSwitchItem({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = Theme.of(context).textTheme.bodySmall?.color;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: scheme.onPrimaryContainer),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: scheme.onPrimaryContainer,
-              fontWeight: FontWeight.w600,
+          Icon(icon, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: muted),
+                ),
+              ],
+            ),
+          ),
+          Switch(value: value, onChanged: onChanged),
+        ],
+      ),
+    );
+  }
+}
+
+class _ThemeModeItem extends StatelessWidget {
+  const _ThemeModeItem({required this.value, required this.onChanged});
+
+  final ThemeMode value;
+  final ValueChanged<ThemeMode> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = Theme.of(context).textTheme.bodySmall?.color;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.palette, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Theme mode'),
+                const SizedBox(height: 2),
+                Text(
+                  'Choose how CarLog follows device appearance.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: muted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<ThemeMode>(
+              value: value,
+              items: const [
+                DropdownMenuItem(
+                  value: ThemeMode.system,
+                  child: Text('System'),
+                ),
+                DropdownMenuItem(value: ThemeMode.light, child: Text('Light')),
+                DropdownMenuItem(value: ThemeMode.dark, child: Text('Dark')),
+              ],
+              onChanged: (next) {
+                if (next != null) {
+                  onChanged(next);
+                }
+              },
             ),
           ),
         ],
