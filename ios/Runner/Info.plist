@@ -45,5 +45,7 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>CarLog uses the camera to capture receipt photos for expense entry.</string>
 </dict>
 </plist>

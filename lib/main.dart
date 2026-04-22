@@ -818,7 +818,7 @@ class _HomeShellState extends State<HomeShell> {
       MaterialPageRoute(
         builder: (context) => AddExpenseScreen(
           vehicles: _vehicles,
-          initialMode: ExpenseInputMode.manual,
+          initialMode: ExpenseEntryMode.manual,
           initialExpense: expense,
         ),
       ),
@@ -938,47 +938,40 @@ class _HomeShellState extends State<HomeShell> {
     unawaited(_loadInitialData(forceRefresh: true));
   }
 
-  Future<ExpenseInputMode?> _showExpenseInputModeSheet() {
-    const modes = <ExpenseInputMode>[
-      ExpenseInputMode.voice,
-      ExpenseInputMode.text,
-      ExpenseInputMode.manual,
+  Future<ExpenseEntryMode?> _showExpenseInputModeSheet() {
+    const modes = <ExpenseEntryMode>[
+      ExpenseEntryMode.smart,
+      ExpenseEntryMode.manual,
     ];
 
-    String modeTitle(ExpenseInputMode mode) {
+    String modeTitle(ExpenseEntryMode mode) {
       switch (mode) {
-        case ExpenseInputMode.voice:
-          return 'Voice';
-        case ExpenseInputMode.text:
-          return 'Text';
-        case ExpenseInputMode.manual:
+        case ExpenseEntryMode.smart:
+          return 'Smart';
+        case ExpenseEntryMode.manual:
           return 'Manual';
       }
     }
 
-    String modeSubtitle(ExpenseInputMode mode) {
+    String modeSubtitle(ExpenseEntryMode mode) {
       switch (mode) {
-        case ExpenseInputMode.voice:
-          return 'Dictate details, then review the form.';
-        case ExpenseInputMode.text:
-          return 'Type details, then review the form.';
-        case ExpenseInputMode.manual:
+        case ExpenseEntryMode.smart:
+          return 'Voice, text, or photo/OCR with AI parsing, then review.';
+        case ExpenseEntryMode.manual:
           return 'Fill the form directly.';
       }
     }
 
-    IconData modeIcon(ExpenseInputMode mode) {
+    IconData modeIcon(ExpenseEntryMode mode) {
       switch (mode) {
-        case ExpenseInputMode.voice:
-          return Icons.mic;
-        case ExpenseInputMode.text:
-          return Icons.text_fields;
-        case ExpenseInputMode.manual:
+        case ExpenseEntryMode.smart:
+          return Icons.auto_awesome;
+        case ExpenseEntryMode.manual:
           return Icons.edit_note;
       }
     }
 
-    return showModalBottomSheet<ExpenseInputMode>(
+    return showModalBottomSheet<ExpenseEntryMode>(
       context: context,
       showDragHandle: true,
       builder: (context) {
@@ -990,12 +983,12 @@ class _HomeShellState extends State<HomeShell> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Choose input method',
+                  'Choose expense mode',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Select one option to continue.',
+                  'Select how you want to add this expense.',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 12),

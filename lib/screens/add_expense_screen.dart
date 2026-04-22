@@ -1,14 +1,17 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../models.dart';
 import '../services/nlp_expense_analyzer.dart';
+import '../services/ocr_receipt_service.dart';
 import '../services/speech_recognition_service.dart';
 
-enum ExpenseInputMode { manual, text, voice }
+enum ExpenseEntryMode { smart, manual }
 
-enum ExpenseWizardStep { textInput, voiceInput, manualForm }
+enum ExpenseWizardStep { smartInput, manualForm }
 
 class AddExpenseScreen extends StatefulWidget {
   const AddExpenseScreen({
@@ -19,7 +22,7 @@ class AddExpenseScreen extends StatefulWidget {
   });
 
   final List<Vehicle> vehicles;
-  final ExpenseInputMode initialMode;
+  final ExpenseEntryMode initialMode;
   final CarExpense? initialExpense;
 
   @override
@@ -29,14 +32,15 @@ class AddExpenseScreen extends StatefulWidget {
 class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final _formKey = GlobalKey<FormState>();
 
-  final _textInputController = TextEditingController();
-  final _voiceInputController = TextEditingController();
+  final _smartInputController = TextEditingController();
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _mileageController = TextEditingController();
 
   final _nlpAnalyzer = const NlpExpenseAnalyzer();
   final _speechService = SpeechRecognitionService();
+  final _ocrService = const OcrReceiptService();
+  final _imagePicker = ImagePicker();
 
   StreamSubscription<SpeechRecognitionStatus>? _speechStatusSubscription;
   StreamSubscription<SpeechRecognitionResult>? _speechResultSubscription;
@@ -52,14 +56,17 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   bool _isParsing = false;
   bool _allowPop = false;
+  String? _lastSmartSource;
 
   @override
   void initState() {
     super.initState();
 
-    _step = widget.initialExpense == null
-        ? _stepForMode(widget.initialMode)
-        : ExpenseWizardStep.manualForm;
+    _step = widget.initialExpense != null
+        ? ExpenseWizardStep.manualForm
+        : widget.initialMode == ExpenseEntryMode.manual
+        ? ExpenseWizardStep.manualForm
+        : ExpenseWizardStep.smartInput;
 
     if (widget.vehicles.isNotEmpty) {
       _selectedVehicle = widget.vehicles.first;
@@ -76,6 +83,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           .where((vehicle) => vehicle.id == expense.vehicleId)
           .firstOrNull;
     }
+
     _initialVehicleId = _selectedVehicle?.id;
     _initialDate = DateTime(
       _selectedDate.year,
@@ -92,10 +100,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
     _speechResultSubscription = _speechService.resultsStream.listen((result) {
       if (!mounted || result.text.trim().isEmpty) return;
-      _voiceInputController.text = result.text.trim();
-      _voiceInputController.selection = TextSelection.fromPosition(
-        TextPosition(offset: _voiceInputController.text.length),
+      _smartInputController.text = result.text.trim();
+      _smartInputController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _smartInputController.text.length),
       );
+      _lastSmartSource = 'Voice';
     });
   }
 
@@ -105,8 +114,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     _speechResultSubscription?.cancel();
     unawaited(_speechService.dispose());
 
-    _textInputController.dispose();
-    _voiceInputController.dispose();
+    _smartInputController.dispose();
     _amountController.dispose();
     _descriptionController.dispose();
     _mileageController.dispose();
@@ -139,112 +147,105 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   Widget _buildCurrentStep() {
     switch (_step) {
-      case ExpenseWizardStep.textInput:
-        return _buildTextInputStep();
-      case ExpenseWizardStep.voiceInput:
-        return _buildVoiceInputStep();
+      case ExpenseWizardStep.smartInput:
+        return _buildSmartInputStep();
       case ExpenseWizardStep.manualForm:
         return _buildManualFormStep();
     }
   }
 
-  Widget _buildTextInputStep() {
+  Widget _buildSmartInputStep() {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text('Text input', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
+        Text('Smart input', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 6),
         Text(
-          'Describe the expense, then continue to the form and complete missing details.',
+          'Use one box for text/voice/OCR. We always open review before save.',
           style: Theme.of(context).textTheme.bodyMedium,
         ),
-        const SizedBox(height: 16),
-        TextFormField(
-          controller: _textInputController,
-          maxLines: 5,
-          decoration: const InputDecoration(
-            hintText:
-                'Example: am alimentat cu 350 lei pentru Passat, 186000 km',
+        if (_lastSmartSource != null) ...[
+          const SizedBox(height: 10),
+          Chip(
+            avatar: const Icon(Icons.auto_awesome, size: 16),
+            label: Text('Last source: $_lastSmartSource'),
           ),
-        ),
-        const SizedBox(height: 16),
-        FilledButton.icon(
-          onPressed: _isParsing
-              ? null
-              : () => _parseAndContinue(_textInputController.text),
-          icon: _isParsing
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.arrow_forward),
-          label: const Text('Continue to form'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildVoiceInputStep() {
-    final isListening = _voiceStatus == SpeechRecognitionStatus.listening;
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Text('Voice input', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
-        Text(
-          'Record, edit transcript if needed, then continue to the manual form.',
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            OutlinedButton.icon(
-              onPressed: isListening ? null : _startVoiceCapture,
-              icon: const Icon(Icons.mic_none_outlined),
-              label: const Text('Start'),
-            ),
-            OutlinedButton.icon(
-              onPressed: isListening ? _stopVoiceCapture : null,
-              icon: const Icon(Icons.stop_circle_outlined),
-              label: const Text('Stop'),
-            ),
-            TextButton.icon(
-              onPressed: _voiceInputController.clear,
-              icon: const Icon(Icons.clear),
-              label: const Text('Clear'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Status: ${_voiceStatusLabel(_voiceStatus)}',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        const SizedBox(height: 12),
-        TextFormField(
-          controller: _voiceInputController,
-          maxLines: 5,
-          decoration: const InputDecoration(
-            hintText: 'Voice transcript appears here (you can edit it).',
+        ],
+        const SizedBox(height: 14),
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
-        ),
-        const SizedBox(height: 16),
-        FilledButton.icon(
-          onPressed: _isParsing
-              ? null
-              : () => _parseAndContinue(_voiceInputController.text),
-          icon: _isParsing
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.arrow_forward),
-          label: const Text('Continue to form'),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Smart input box',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      tooltip: 'Voice controls',
+                      onPressed: _isParsing ? null : _openVoiceControlsSheet,
+                      icon: const Icon(Icons.mic),
+                    ),
+                    IconButton(
+                      tooltip: 'Take photo and extract text',
+                      onPressed: _isParsing ? null : _runPhotoOcrDemo,
+                      icon: const Icon(Icons.photo_camera_outlined),
+                    ),
+                    IconButton(
+                      tooltip: 'Clear',
+                      onPressed: _isParsing
+                          ? null
+                          : () {
+                              _smartInputController.clear();
+                            },
+                      icon: const Icon(Icons.clear),
+                    ),
+                  ],
+                ),
+                Text(
+                  'Voice status: ${_voiceStatusLabel(_voiceStatus)}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _smartInputController,
+                  maxLines: 6,
+                  decoration: const InputDecoration(
+                    hintText:
+                        'Type here, speak with mic, or capture a receipt photo.',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    onPressed: _isParsing
+                        ? null
+                        : () => _parseAndContinue(
+                            _smartInputController.text,
+                            sourceLabel: _lastSmartSource ?? 'Smart',
+                          ),
+                    icon: _isParsing
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.auto_fix_high),
+                    label: const Text('Continue'),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
@@ -366,29 +367,197 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   Future<void> _startVoiceCapture() async {
     await _speechService.startListening();
+    _lastSmartSource = 'Voice';
   }
 
   Future<void> _stopVoiceCapture() async {
     await _speechService.stopListening();
 
     if (!mounted) return;
-    if (_voiceInputController.text.trim().isNotEmpty) return;
+    if (_smartInputController.text.trim().isNotEmpty) return;
 
     final vehicleName = _selectedVehicle?.displayName ?? 'car';
     final fallback =
         'Am cheltuit 320 lei pe benzina pentru $vehicleName la 186000 km azi';
 
-    _voiceInputController.text = fallback;
-    _voiceInputController.selection = TextSelection.fromPosition(
+    _smartInputController.text = fallback;
+    _smartInputController.selection = TextSelection.fromPosition(
       TextPosition(offset: fallback.length),
     );
+    _lastSmartSource = 'Voice';
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Added a demo voice transcript.')),
     );
   }
 
-  Future<void> _parseAndContinue(String rawInput) async {
+  Future<void> _resetVoiceCapture() async {
+    await _speechService.cancel();
+    if (!mounted) return;
+
+    _smartInputController.clear();
+    setState(() {
+      _lastSmartSource = null;
+    });
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Voice input reset.')));
+  }
+
+  Future<void> _openVoiceControlsSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              16,
+              6,
+              16,
+              16 + MediaQuery.of(sheetContext).viewPadding.bottom,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Voice input',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Start recording, pause/end, or reset.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 16),
+                StreamBuilder<SpeechRecognitionStatus>(
+                  stream: _speechService.statusStream,
+                  initialData: _voiceStatus,
+                  builder: (context, snapshot) {
+                    final status =
+                        snapshot.data ?? SpeechRecognitionStatus.idle;
+                    final isListening =
+                        status == SpeechRecognitionStatus.listening;
+                    final isProcessing =
+                        status == SpeechRecognitionStatus.processing;
+
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        _VoiceControlButton(
+                          icon: Icons.play_arrow_rounded,
+                          label: 'Start',
+                          enabled: !isListening && !isProcessing,
+                          onPressed: _startVoiceCapture,
+                        ),
+                        _VoiceControlButton(
+                          icon: Icons.pause_circle_outline,
+                          label: 'Pause/End',
+                          enabled: isListening,
+                          onPressed: () async {
+                            await _stopVoiceCapture();
+                            if (!sheetContext.mounted) return;
+                            await Navigator.of(sheetContext).maybePop();
+                          },
+                        ),
+                        _VoiceControlButton(
+                          icon: Icons.restart_alt_rounded,
+                          label: 'Reset',
+                          enabled: !isProcessing,
+                          onPressed: _resetVoiceCapture,
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _smartInputController,
+                  builder: (context, value, _) {
+                    final text = value.text.trim();
+                    return Text(
+                      text.isEmpty
+                          ? 'Transcript will appear in the smart input box.'
+                          : text,
+                      style: Theme.of(context).textTheme.bodySmall,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _runPhotoOcrDemo() async {
+    setState(() {
+      _isParsing = true;
+    });
+
+    try {
+      final image = await _imagePicker.pickImage(source: ImageSource.camera);
+      if (!mounted || image == null) {
+        return;
+      }
+
+      final imageBytes = await image.readAsBytes();
+      final result = await _ocrService.processReceipt(
+        imageBytes.isEmpty ? Uint8List(0) : imageBytes,
+      );
+      if (!mounted) {
+        return;
+      }
+
+      final fallback = _selectedVehicle == null
+          ? 'Bon fiscal: total 260 lei, 185500 km, alimentare azi'
+          : 'Bon fiscal: total 260 lei, ${_selectedVehicle!.displayName}, '
+                '185500 km, alimentare azi';
+
+      final raw = result.rawText.trim().isEmpty
+          ? fallback
+          : result.rawText.trim();
+      _smartInputController.text = raw;
+      _smartInputController.selection = TextSelection.fromPosition(
+        TextPosition(offset: raw.length),
+      );
+      _lastSmartSource = 'Photo/OCR';
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.rawText.trim().isEmpty
+                ? 'Photo captured. Added demo OCR text.'
+                : 'Photo captured and text extracted.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not capture photo. Please check camera access.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isParsing = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _parseAndContinue(
+    String rawInput, {
+    required String sourceLabel,
+  }) async {
     final normalized = rawInput.trim();
     if (normalized.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -409,6 +578,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
       setState(() {
         _step = ExpenseWizardStep.manualForm;
+        _lastSmartSource = sourceLabel;
       });
 
       final lowConfidence = (intent.confidence ?? 0) < 0.5;
@@ -417,7 +587,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           content: Text(
             lowConfidence
                 ? 'Could not parse all details. Please review and complete the form.'
-                : 'Details parsed. Review and complete the form.',
+                : 'Details parsed from $sourceLabel. Review and complete the form.',
           ),
         ),
       );
@@ -430,6 +600,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
       setState(() {
         _step = ExpenseWizardStep.manualForm;
+        _lastSmartSource = sourceLabel;
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -569,8 +740,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 
   bool _hasAnyInput() {
-    if (_textInputController.text.trim().isNotEmpty) return true;
-    if (_voiceInputController.text.trim().isNotEmpty) return true;
+    if (_smartInputController.text.trim().isNotEmpty) return true;
     if (_amountController.text.trim().isNotEmpty) return true;
     if (_descriptionController.text.trim().isNotEmpty) return true;
     if (_mileageController.text.trim().isNotEmpty) return true;
@@ -586,17 +756,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     if (currentDate != _initialDate) return true;
 
     return false;
-  }
-
-  ExpenseWizardStep _stepForMode(ExpenseInputMode mode) {
-    switch (mode) {
-      case ExpenseInputMode.voice:
-        return ExpenseWizardStep.voiceInput;
-      case ExpenseInputMode.text:
-        return ExpenseWizardStep.textInput;
-      case ExpenseInputMode.manual:
-        return ExpenseWizardStep.manualForm;
-    }
   }
 
   String _formatAmount(double value) {
@@ -621,6 +780,39 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     return '${date.day.toString().padLeft(2, '0')}/'
         '${date.month.toString().padLeft(2, '0')}/'
         '${date.year}';
+  }
+}
+
+class _VoiceControlButton extends StatelessWidget {
+  const _VoiceControlButton({
+    required this.icon,
+    required this.label,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool enabled;
+  final Future<void> Function() onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        IconButton.filledTonal(
+          onPressed: enabled
+              ? () {
+                  unawaited(onPressed());
+                }
+              : null,
+          icon: Icon(icon),
+          tooltip: label,
+        ),
+        const SizedBox(height: 4),
+        Text(label, style: Theme.of(context).textTheme.labelSmall),
+      ],
+    );
   }
 }
 
