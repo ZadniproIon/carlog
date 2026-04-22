@@ -11,10 +11,12 @@ class AddReminderScreen extends StatefulWidget {
     super.key,
     required this.vehicleId,
     this.initialReminder,
+    this.onDelete,
   });
 
   final String vehicleId;
   final MaintenanceReminder? initialReminder;
+  final VoidCallback? onDelete;
 
   @override
   State<AddReminderScreen> createState() => _AddReminderScreenState();
@@ -61,6 +63,26 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
         title: Text(
           widget.initialReminder == null ? 'Add reminder' : 'Edit reminder',
         ),
+        actions: [
+          if (widget.initialReminder != null && widget.onDelete != null)
+            PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value != 'delete') {
+                  return;
+                }
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  _confirmAndDeleteReminder();
+                });
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem<String>(
+                  value: 'delete',
+                  child: Text('Delete reminder'),
+                ),
+              ],
+              icon: const Icon(LucideIcons.moreVertical),
+            ),
+        ],
       ),
       body: SafeArea(
         child: Form(
@@ -166,6 +188,45 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
     if (result != null) {
       setState(() => _dueDate = result);
     }
+  }
+
+  Future<void> _confirmAndDeleteReminder() async {
+    // Let popup menu route fully close before opening a dialog.
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    if (!mounted) {
+      return;
+    }
+
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      useRootNavigator: true,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Delete reminder?'),
+          content: const Text('This reminder will be permanently removed.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true || !mounted) {
+      return;
+    }
+
+    widget.onDelete?.call();
+    if (!mounted) {
+      return;
+    }
+    Navigator.of(context).pop();
   }
 
   void _submit() {

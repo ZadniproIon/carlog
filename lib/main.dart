@@ -803,6 +803,7 @@ class _HomeShellState extends State<HomeShell> {
             builder: (context) => AddReminderScreen(
               vehicleId: reminder.vehicleId,
               initialReminder: reminder,
+              onDelete: () => _deleteReminder(reminder.id),
             ),
           ),
         );
@@ -982,6 +983,7 @@ class _HomeShellState extends State<HomeShell> {
         vehicles: _vehicles,
         expenses: _expenses,
         reminders: _reminders,
+        onEditReminder: _openEditReminderFlow,
       ),
       ExpensesScreen(
         expenses: _expenses,
@@ -1003,6 +1005,7 @@ class _HomeShellState extends State<HomeShell> {
         onDeleteReminder: _deleteReminder,
         onEditExpense: _openEditExpenseFlow,
         onDeleteExpense: _deleteExpense,
+        onUpdateVehicleMileage: _updateVehicle,
       ),
       ProfileScreen(
         user: widget.currentUser,

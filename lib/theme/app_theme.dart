@@ -68,6 +68,10 @@ class CarlogAppTheme {
         surfaceTintColor: Colors.transparent,
         backgroundColor: colors.bgCard,
       ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: colors.flame,
+        foregroundColor: Colors.white,
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: colors.bgCard,

@@ -16,11 +16,13 @@ class DashboardScreen extends StatefulWidget {
     required this.vehicles,
     required this.expenses,
     required this.reminders,
+    required this.onEditReminder,
   });
 
   final List<Vehicle> vehicles;
   final List<CarExpense> expenses;
   final List<MaintenanceReminder> reminders;
+  final ValueChanged<MaintenanceReminder> onEditReminder;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -207,6 +209,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _MaintenanceList(
               reminders: filteredReminders,
               vehicles: widget.vehicles,
+              onTapReminder: widget.onEditReminder,
             ),
             const SizedBox(height: 16),
             Text(
@@ -227,17 +230,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
               )
             else
               Column(
-                children: recentExpenses
-                    .map(
-                      (expense) => ExpenseListTile(
-                        expense: expense,
-                        vehicle: widget.vehicles
-                            .where((vehicle) => vehicle.id == expense.vehicleId)
-                            .firstOrNull,
-                        margin: const EdgeInsets.symmetric(vertical: 6),
+                children: [
+                  for (var i = 0; i < recentExpenses.length; i++) ...[
+                    ExpenseListTile(
+                      expense: recentExpenses[i],
+                      vehicle: widget.vehicles
+                          .where(
+                            (vehicle) => vehicle.id == recentExpenses[i].vehicleId,
+                          )
+                          .firstOrNull,
+                      flat: true,
+                    ),
+                    if (i < recentExpenses.length - 1)
+                      Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: Theme.of(context).dividerColor,
                       ),
-                    )
-                    .toList(),
+                  ],
+                ],
               ),
           ],
         ),
@@ -993,10 +1004,15 @@ class _ExpenseHistogramCard extends StatelessWidget {
 }
 
 class _MaintenanceList extends StatelessWidget {
-  const _MaintenanceList({required this.reminders, required this.vehicles});
+  const _MaintenanceList({
+    required this.reminders,
+    required this.vehicles,
+    required this.onTapReminder,
+  });
 
   final List<MaintenanceReminder> reminders;
   final List<Vehicle> vehicles;
+  final ValueChanged<MaintenanceReminder> onTapReminder;
 
   @override
   Widget build(BuildContext context) {
@@ -1014,29 +1030,56 @@ class _MaintenanceList extends StatelessWidget {
     }
 
     final scheme = Theme.of(context).colorScheme;
+    final isDark = scheme.brightness == Brightness.dark;
+    final iconBackground = isDark
+        ? const Color(0xFF4A3A2F)
+        : const Color(0xFFFFE8D8);
+    final iconForeground = isDark
+        ? const Color(0xFFFFC79E)
+        : const Color(0xFF8A4E1F);
 
     return Column(
-      children: reminders.map((reminder) {
-        final vehicle = vehicles
-            .where((item) => item.id == reminder.vehicleId)
-            .firstOrNull;
-        final dueInfo = _buildDueInfo(reminder);
-        return Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+      children: [
+        for (var i = 0; i < reminders.length; i++) ...[
+          Builder(
+            builder: (context) {
+              final reminder = reminders[i];
+              final vehicle = vehicles
+                  .where((item) => item.id == reminder.vehicleId)
+                  .firstOrNull;
+              final dueInfo = _buildDueInfo(reminder);
+              return Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: ListTile(
+                  onTap: () => onTapReminder(reminder),
+                  leading: CircleAvatar(
+                    backgroundColor: iconBackground,
+                    child: Icon(
+                      LucideIcons.wrench,
+                      color: iconForeground,
+                    ),
+                  ),
+                  title: Text(
+                    reminder.title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  subtitle: Text(
+                    '${vehicle?.displayName ?? 'Vehicle'} - $dueInfo\n'
+                    '${reminder.description}',
+                  ),
+                  isThreeLine: true,
+                ),
+              );
+            },
           ),
-          child: ListTile(
-            leading: Icon(LucideIcons.clock3, color: scheme.primary),
-            title: Text(reminder.title),
-            subtitle: Text(
-              '${vehicle?.displayName ?? 'Vehicle'} - $dueInfo\n'
-              '${reminder.description}',
-            ),
-            isThreeLine: true,
-          ),
-        );
-      }).toList(),
+          if (i < reminders.length - 1) const SizedBox(height: 10),
+        ],
+      ],
     );
   }
 
