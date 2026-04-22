@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 import '../models.dart';
 
 class CategoryChart extends StatelessWidget {
-  const CategoryChart({
-    super.key,
-    required this.categoryTotals,
-  });
+  const CategoryChart({super.key, required this.categoryTotals});
 
   final Map<ExpenseCategory, double> categoryTotals;
 
@@ -16,8 +13,10 @@ class CategoryChart extends StatelessWidget {
       return _buildPlaceholder(context);
     }
 
-    final maxTotal =
-        categoryTotals.values.fold<double>(0, (prev, e) => e > prev ? e : prev);
+    final maxTotal = categoryTotals.values.fold<double>(
+      0,
+      (prev, e) => e > prev ? e : prev,
+    );
 
     if (maxTotal == 0) {
       return _buildPlaceholder(context);
@@ -53,10 +52,7 @@ class CategoryChart extends StatelessWidget {
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(8),
                             gradient: LinearGradient(
-                              colors: [
-                                scheme.primaryContainer,
-                                scheme.primary,
-                              ],
+                              colors: [scheme.primaryContainer, scheme.primary],
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
                             ),
@@ -106,3 +102,4 @@ class CategoryChart extends StatelessWidget {
     );
   }
 }
+

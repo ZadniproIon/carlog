@@ -1,10 +1,7 @@
 import 'dart:typed_data';
 
 class OcrLineItem {
-  const OcrLineItem({
-    required this.text,
-    this.amount,
-  });
+  const OcrLineItem({required this.text, this.amount});
 
   final String text;
   final double? amount;

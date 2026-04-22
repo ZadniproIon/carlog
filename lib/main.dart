@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -20,6 +21,7 @@ import 'screens/profile_screen.dart';
 import 'screens/vehicles_screen.dart';
 import 'services/carlog_repository.dart';
 import 'services/notification_service.dart';
+import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -382,57 +384,12 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    final lightScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF1565C0),
-      brightness: Brightness.light,
-    );
-    final darkScheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF42A5F5),
-      brightness: Brightness.dark,
-    );
-
     return MaterialApp(
       title: 'CarLog',
       debugShowCheckedModeBanner: false,
       themeMode: _themeMode,
-      theme: ThemeData(
-        colorScheme: lightScheme,
-        useMaterial3: true,
-        scaffoldBackgroundColor: lightScheme.surface,
-        appBarTheme: AppBarTheme(
-          backgroundColor: lightScheme.surface,
-          foregroundColor: lightScheme.onSurface,
-          elevation: 0,
-        ),
-        navigationBarTheme: NavigationBarThemeData(
-          indicatorColor: lightScheme.primaryContainer,
-          surfaceTintColor: Colors.transparent,
-        ),
-        inputDecorationTheme: const InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-          ),
-        ),
-      ),
-      darkTheme: ThemeData(
-        colorScheme: darkScheme,
-        useMaterial3: true,
-        scaffoldBackgroundColor: darkScheme.surface,
-        appBarTheme: AppBarTheme(
-          backgroundColor: darkScheme.surface,
-          foregroundColor: darkScheme.onSurface,
-          elevation: 0,
-        ),
-        navigationBarTheme: NavigationBarThemeData(
-          indicatorColor: darkScheme.primaryContainer,
-          surfaceTintColor: Colors.transparent,
-        ),
-        inputDecorationTheme: const InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-          ),
-        ),
-      ),
+      theme: CarlogAppTheme.light(),
+      darkTheme: CarlogAppTheme.dark(),
       home: _currentUser == null
           ? AuthScreen(
               onLogin: _handleLogin,
@@ -965,9 +922,9 @@ class _HomeShellState extends State<HomeShell> {
     IconData modeIcon(ExpenseEntryMode mode) {
       switch (mode) {
         case ExpenseEntryMode.smart:
-          return Icons.auto_awesome;
+          return LucideIcons.sparkles;
         case ExpenseEntryMode.manual:
-          return Icons.edit_note;
+          return LucideIcons.edit3;
       }
     }
 
@@ -1005,7 +962,7 @@ class _HomeShellState extends State<HomeShell> {
                       leading: Icon(modeIcon(mode)),
                       title: Text(modeTitle(mode)),
                       subtitle: Text(modeSubtitle(mode)),
-                      trailing: const Icon(Icons.chevron_right),
+                      trailing: const Icon(LucideIcons.chevronRight),
                       onTap: () => Navigator.of(context).pop(mode),
                     ),
                   );
@@ -1081,7 +1038,7 @@ class _HomeShellState extends State<HomeShell> {
             _addExpense(newExpense);
           }
         },
-        child: const Icon(Icons.add),
+        child: const Icon(LucideIcons.plus),
       );
     }
 
@@ -1099,23 +1056,23 @@ class _HomeShellState extends State<HomeShell> {
         },
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
+            icon: Icon(LucideIcons.layoutDashboard),
+            selectedIcon: Icon(LucideIcons.layoutDashboard),
             label: 'Dashboard',
           ),
           NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
+            icon: Icon(LucideIcons.receipt),
+            selectedIcon: Icon(LucideIcons.receipt),
             label: 'Expenses',
           ),
           NavigationDestination(
-            icon: Icon(Icons.directions_car_outlined),
-            selectedIcon: Icon(Icons.directions_car),
+            icon: Icon(LucideIcons.car),
+            selectedIcon: Icon(LucideIcons.car),
             label: 'Vehicles',
           ),
           NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
+            icon: Icon(LucideIcons.user),
+            selectedIcon: Icon(LucideIcons.user),
             label: 'Profile',
           ),
         ],

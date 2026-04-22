@@ -55,9 +55,10 @@ class NlpExpenseAnalyzer {
 
     double? amount;
     String? currency;
-    final currencyMatch =
-        RegExp(r'(\d+[.,]?\d*)\s*(lei|ron|eur|euro)?', caseSensitive: false)
-            .firstMatch(normalized);
+    final currencyMatch = RegExp(
+      r'(\d+[.,]?\d*)\s*(lei|ron|eur|euro)?',
+      caseSensitive: false,
+    ).firstMatch(normalized);
     if (currencyMatch != null) {
       final raw = currencyMatch.group(1)?.replaceAll(',', '.');
       final parsed = double.tryParse(raw ?? '');
@@ -88,8 +89,10 @@ class NlpExpenseAnalyzer {
       category = ExpenseCategory.parts;
     }
 
-    final mileageMatch =
-        RegExp(r'(\d{4,6})\s*km', caseSensitive: false).firstMatch(normalized);
+    final mileageMatch = RegExp(
+      r'(\d{4,6})\s*km',
+      caseSensitive: false,
+    ).firstMatch(normalized);
     int? mileage;
     if (mileageMatch != null) {
       mileage = int.tryParse(mileageMatch.group(1) ?? '');
@@ -113,7 +116,8 @@ class NlpExpenseAnalyzer {
     DateTime? date;
     if (normalized.contains('azi') || normalized.contains('today')) {
       date = DateTime.now();
-    } else if (normalized.contains('ieri') || normalized.contains('yesterday')) {
+    } else if (normalized.contains('ieri') ||
+        normalized.contains('yesterday')) {
       final now = DateTime.now();
       date = DateTime(now.year, now.month, now.day - 1);
     }
@@ -138,3 +142,4 @@ class NlpExpenseAnalyzer {
     );
   }
 }
+

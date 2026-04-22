@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../models.dart';
 import '../widgets/expense_list_tile.dart';
@@ -53,12 +54,12 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                       }
                     });
                   },
-                  icon: const Icon(Icons.select_all),
+                  icon: const Icon(LucideIcons.checkSquare),
                 ),
                 IconButton(
                   tooltip: 'Delete selected',
                   onPressed: _deleteSelected,
-                  icon: const Icon(Icons.delete_outline),
+                  icon: const Icon(LucideIcons.trash2),
                 ),
                 IconButton(
                   tooltip: 'Cancel selection',
@@ -67,7 +68,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                       _selectedExpenseIds.clear();
                     });
                   },
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(LucideIcons.x),
                 ),
               ]
             : null,
@@ -228,3 +229,4 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 extension _FirstOrNull<T> on Iterable<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
+

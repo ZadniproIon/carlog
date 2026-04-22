@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 enum ExpenseCategory { fuel, service, insurance, parts, other }
 
@@ -35,15 +36,15 @@ String expenseCategoryLabel(ExpenseCategory category) {
 IconData expenseCategoryIcon(ExpenseCategory category) {
   switch (category) {
     case ExpenseCategory.fuel:
-      return Icons.local_gas_station;
+      return LucideIcons.fuel;
     case ExpenseCategory.service:
-      return Icons.build;
+      return LucideIcons.wrench;
     case ExpenseCategory.insurance:
-      return Icons.shield_outlined;
+      return LucideIcons.shield;
     case ExpenseCategory.parts:
-      return Icons.settings_applications;
+      return LucideIcons.settings;
     case ExpenseCategory.other:
-      return Icons.more_horiz;
+      return LucideIcons.moreHorizontal;
   }
 }
 
@@ -339,3 +340,4 @@ DateTime _dateFrom(Object? value, {DateTime? fallback}) {
   }
   return fallback ?? DateTime.now();
 }
+

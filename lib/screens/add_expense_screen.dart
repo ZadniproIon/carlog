@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models.dart';
@@ -167,7 +168,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         if (_lastSmartSource != null) ...[
           const SizedBox(height: 10),
           Chip(
-            avatar: const Icon(Icons.auto_awesome, size: 16),
+            avatar: const Icon(LucideIcons.sparkles, size: 16),
             label: Text('Last source: $_lastSmartSource'),
           ),
         ],
@@ -192,12 +193,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     IconButton(
                       tooltip: 'Voice controls',
                       onPressed: _isParsing ? null : _openVoiceControlsSheet,
-                      icon: const Icon(Icons.mic),
+                      icon: const Icon(LucideIcons.mic),
                     ),
                     IconButton(
                       tooltip: 'Take photo and extract text',
                       onPressed: _isParsing ? null : _runPhotoOcrDemo,
-                      icon: const Icon(Icons.photo_camera_outlined),
+                      icon: const Icon(LucideIcons.camera),
                     ),
                     IconButton(
                       tooltip: 'Clear',
@@ -206,7 +207,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           : () {
                               _smartInputController.clear();
                             },
-                      icon: const Icon(Icons.clear),
+                      icon: const Icon(LucideIcons.x),
                     ),
                   ],
                 ),
@@ -239,7 +240,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                             height: 14,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.auto_fix_high),
+                        : const Icon(LucideIcons.wand2),
                     label: const Text('Continue'),
                   ),
                 ),
@@ -347,7 +348,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(_formatDate(_selectedDate)),
-                  const Icon(Icons.calendar_today_outlined),
+                  const Icon(LucideIcons.calendar),
                 ],
               ),
             ),
@@ -355,7 +356,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: _submit,
-            icon: const Icon(Icons.check),
+            icon: const Icon(LucideIcons.check),
             label: Text(
               widget.initialExpense == null ? 'Save expense' : 'Update expense',
             ),
@@ -448,13 +449,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
                         _VoiceControlButton(
-                          icon: Icons.play_arrow_rounded,
+                          icon: LucideIcons.play,
                           label: 'Start',
                           enabled: !isListening && !isProcessing,
                           onPressed: _startVoiceCapture,
                         ),
                         _VoiceControlButton(
-                          icon: Icons.pause_circle_outline,
+                          icon: LucideIcons.pause,
                           label: 'Pause/End',
                           enabled: isListening,
                           onPressed: () async {
@@ -464,7 +465,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                           },
                         ),
                         _VoiceControlButton(
-                          icon: Icons.restart_alt_rounded,
+                          icon: LucideIcons.rotateCcw,
                           label: 'Reset',
                           enabled: !isProcessing,
                           onPressed: _resetVoiceCapture,
@@ -819,3 +820,4 @@ class _VoiceControlButton extends StatelessWidget {
 extension _FirstOrNull<T> on Iterable<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
+

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../models.dart';
 
@@ -133,7 +134,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
               const SizedBox(height: 24),
               FilledButton.icon(
                 onPressed: _submit,
-                icon: const Icon(Icons.check),
+                icon: const Icon(LucideIcons.check),
                 label: Text(
                   widget.initialVehicle == null
                       ? 'Save vehicle'
@@ -171,3 +172,4 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     Navigator.of(context).pop(vehicle);
   }
 }
+

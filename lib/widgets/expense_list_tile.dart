@@ -242,3 +242,4 @@ class _CategoryPalette {
   final Color background;
   final Color foreground;
 }
+

@@ -1,11 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-enum SpeechRecognitionStatus {
-  idle,
-  listening,
-  processing,
-}
+enum SpeechRecognitionStatus { idle, listening, processing }
 
 class SpeechRecognitionResult {
   const SpeechRecognitionResult({
@@ -29,11 +25,9 @@ class SpeechRecognitionService {
 
   SpeechRecognitionStatus _status = SpeechRecognitionStatus.idle;
 
-  Stream<SpeechRecognitionStatus> get statusStream =>
-      _statusController.stream;
+  Stream<SpeechRecognitionStatus> get statusStream => _statusController.stream;
 
-  Stream<SpeechRecognitionResult> get resultsStream =>
-      _resultController.stream;
+  Stream<SpeechRecognitionResult> get resultsStream => _resultController.stream;
 
   SpeechRecognitionStatus get status => _status;
 

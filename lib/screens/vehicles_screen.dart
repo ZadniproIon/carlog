@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../models.dart';
 import '../widgets/category_chart.dart';
@@ -42,7 +43,7 @@ class VehiclesScreen extends StatelessWidget {
           IconButton(
             tooltip: 'Add vehicle',
             onPressed: onAddVehicle,
-            icon: const Icon(Icons.add),
+            icon: const Icon(LucideIcons.plus),
           ),
         ],
       ),
@@ -86,7 +87,7 @@ class VehiclesScreen extends StatelessWidget {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.directions_car_filled_outlined),
+                              const Icon(LucideIcons.car),
                               const SizedBox(width: 8),
                               Text(
                                 vehicle.displayName,
@@ -125,11 +126,11 @@ class VehiclesScreen extends StatelessWidget {
                             children: [
                               _InfoChip(
                                 label: 'Year ${vehicle.year}',
-                                icon: Icons.calendar_today_outlined,
+                                icon: LucideIcons.calendar,
                               ),
                               _InfoChip(
                                 label: vehicle.engine,
-                                icon: Icons.speed,
+                                icon: LucideIcons.gauge,
                               ),
                             ],
                           ),
@@ -226,7 +227,7 @@ class VehicleDetailScreen extends StatelessWidget {
           IconButton(
             tooltip: 'Edit vehicle',
             onPressed: () => onEditVehicle(vehicle),
-            icon: const Icon(Icons.edit_outlined),
+            icon: const Icon(LucideIcons.edit3),
           ),
           IconButton(
             tooltip: 'Delete vehicle',
@@ -234,13 +235,13 @@ class VehicleDetailScreen extends StatelessWidget {
               onDeleteVehicle(vehicle.id);
               Navigator.of(context).pop();
             },
-            icon: const Icon(Icons.delete_outline),
+            icon: const Icon(LucideIcons.trash2),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => onAddReminder(vehicle.id),
-        icon: const Icon(Icons.add_alert_outlined),
+        icon: const Icon(LucideIcons.bellPlus),
         label: const Text('Add reminder'),
       ),
       body: SingleChildScrollView(
@@ -250,7 +251,7 @@ class VehicleDetailScreen extends StatelessWidget {
           children: [
             _SectionCard(
               title: 'Header',
-              icon: Icons.directions_car_filled_outlined,
+              icon: LucideIcons.car,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -269,7 +270,7 @@ class VehicleDetailScreen extends StatelessWidget {
             const SizedBox(height: 12),
             _SectionCard(
               title: 'Specs',
-              icon: Icons.tune,
+              icon: LucideIcons.slidersHorizontal,
               child: Column(
                 children: [
                   _SpecRow(label: 'Year', value: '${vehicle.year}'),
@@ -285,7 +286,7 @@ class VehicleDetailScreen extends StatelessWidget {
             const SizedBox(height: 12),
             _SectionCard(
               title: 'Status',
-              icon: Icons.monitor_heart_outlined,
+              icon: LucideIcons.activity,
               child: Column(
                 children: [
                   _SpecRow(
@@ -313,7 +314,7 @@ class VehicleDetailScreen extends StatelessWidget {
                     title: 'Total spent',
                     value: '${totalSpent.toStringAsFixed(0)} lei',
                     subtitle: '${vehicleExpenses.length} expenses',
-                    icon: Icons.payments_outlined,
+                    icon: LucideIcons.wallet,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -324,7 +325,7 @@ class VehicleDetailScreen extends StatelessWidget {
                     subtitle: lastExpense == null
                         ? 'No history yet'
                         : 'Last at ${lastExpense.mileage} km',
-                    icon: Icons.speed,
+                    icon: LucideIcons.gauge,
                   ),
                 ),
               ],
@@ -485,7 +486,7 @@ class _VehicleMaintenanceList extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
           child: ListTile(
-            leading: Icon(Icons.build_circle_outlined, color: scheme.primary),
+            leading: Icon(LucideIcons.wrench, color: scheme.primary),
             title: Text(r.title),
             subtitle: Text('$dueInfo\n${r.description}'),
             isThreeLine: true,

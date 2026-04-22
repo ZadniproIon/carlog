@@ -45,16 +45,14 @@ class AiInsightsService {
       final parts = key.split('-');
       if (parts.length < 3) return;
       final vehicleId = parts[0];
-      final total =
-          group.fold<double>(0, (sum, e) => sum + e.amount);
+      final total = group.fold<double>(0, (sum, e) => sum + e.amount);
       perVehicleTotals.putIfAbsent(vehicleId, () => []).add(total);
     });
 
     final averages = <String, double>{};
     perVehicleTotals.forEach((vehicleId, totals) {
       if (totals.isEmpty) return;
-      final avg =
-          totals.fold<double>(0, (s, v) => s + v) / totals.length;
+      final avg = totals.fold<double>(0, (s, v) => s + v) / totals.length;
       averages[vehicleId] = avg;
     });
 
@@ -65,8 +63,7 @@ class AiInsightsService {
       final vehicleId = parts[0];
       final year = int.parse(parts[1]);
       final month = int.parse(parts[2]);
-      final total =
-          group.fold<double>(0, (sum, e) => sum + e.amount);
+      final total = group.fold<double>(0, (sum, e) => sum + e.amount);
       final avg = averages[vehicleId] ?? total;
       if (avg == 0) return;
       if (total > avg * 1.5) {
@@ -92,8 +89,9 @@ class AiInsightsService {
     final now = DateTime.now();
 
     for (final vehicle in vehicles) {
-      final vehicleExpenses =
-          expenses.where((e) => e.vehicleId == vehicle.id).toList();
+      final vehicleExpenses = expenses
+          .where((e) => e.vehicleId == vehicle.id)
+          .toList();
       vehicleExpenses.sort((a, b) => a.date.compareTo(b.date));
 
       final lastService = vehicleExpenses
@@ -121,3 +119,4 @@ class AiInsightsService {
 extension _IterableLastOrNull<T> on Iterable<T> {
   T? get lastOrNull => isEmpty ? null : last;
 }
+

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../models.dart';
 import '../widgets/category_chart.dart';
@@ -57,7 +58,7 @@ class VehicleDetailScreen extends StatelessWidget {
           children: [
             _SectionCard(
               title: 'Header',
-              icon: Icons.directions_car_filled_outlined,
+              icon: LucideIcons.car,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -76,7 +77,7 @@ class VehicleDetailScreen extends StatelessWidget {
             const SizedBox(height: 12),
             _SectionCard(
               title: 'Specs',
-              icon: Icons.tune,
+              icon: LucideIcons.slidersHorizontal,
               child: Column(
                 children: [
                   _SpecRow(label: 'Year', value: '${vehicle.year}'),
@@ -89,7 +90,7 @@ class VehicleDetailScreen extends StatelessWidget {
             const SizedBox(height: 12),
             _SectionCard(
               title: 'Status',
-              icon: Icons.monitor_heart_outlined,
+              icon: LucideIcons.activity,
               child: Column(
                 children: [
                   _SpecRow(
@@ -112,7 +113,7 @@ class VehicleDetailScreen extends StatelessWidget {
             const SizedBox(height: 12),
             _SectionCard(
               title: 'AI Insight',
-              icon: Icons.auto_awesome,
+              icon: LucideIcons.sparkles,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -129,7 +130,7 @@ class VehicleDetailScreen extends StatelessWidget {
                         children: [
                           const Padding(
                             padding: EdgeInsets.only(top: 6),
-                            child: Icon(Icons.circle, size: 7),
+                            child: Icon(LucideIcons.circle, size: 7),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
@@ -161,7 +162,7 @@ class VehicleDetailScreen extends StatelessWidget {
                     title: 'Total spent',
                     value: '${totalSpent.toStringAsFixed(0)} lei',
                     subtitle: '${vehicleExpenses.length} expenses',
-                    icon: Icons.payments_outlined,
+                    icon: LucideIcons.wallet,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -172,7 +173,7 @@ class VehicleDetailScreen extends StatelessWidget {
                     subtitle: lastExpense == null
                         ? 'No history yet'
                         : 'Last at ${lastExpense.mileage} km',
-                    icon: Icons.speed,
+                    icon: LucideIcons.gauge,
                   ),
                 ),
               ],
@@ -382,7 +383,7 @@ class _VehicleMaintenanceList extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
           child: ListTile(
-            leading: Icon(Icons.build_circle_outlined, color: scheme.primary),
+            leading: Icon(LucideIcons.wrench, color: scheme.primary),
             title: Text(r.title),
             subtitle: Text('$dueInfo\n${r.description}'),
             isThreeLine: true,
@@ -403,3 +404,5 @@ class _VehicleMaintenanceList extends StatelessWidget {
     return 'No due information';
   }
 }
+
+

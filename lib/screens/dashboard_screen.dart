@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../models.dart';
 import '../widgets/expense_list_tile.dart';
@@ -98,7 +99,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       initialValue: _selectedVehicleId ?? _allVehiclesKey,
                       decoration: const InputDecoration(
                         labelText: 'Show analytics for',
-                        prefixIcon: Icon(Icons.directions_car_outlined),
+                        prefixIcon: Icon(LucideIcons.car),
                       ),
                       items: [
                         const DropdownMenuItem<String>(
@@ -141,7 +142,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     title: 'This month',
                     value: '${thisMonthActual.toStringAsFixed(0)} lei',
                     subtitle: 'Actual spending',
-                    icon: Icons.payments_outlined,
+                    icon: LucideIcons.wallet,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -150,7 +151,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     title: 'Next month',
                     value: '${nextMonthPrediction.toStringAsFixed(0)} lei',
                     subtitle: 'Predicted by trend',
-                    icon: Icons.trending_up,
+                    icon: LucideIcons.trendingUp,
                   ),
                 ),
               ],
@@ -373,7 +374,7 @@ class _ForecastInsightCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Icon(
-                    Icons.info_outline,
+                    LucideIcons.info,
                     size: 16,
                     color: scheme.onSurfaceVariant,
                   ),
@@ -1025,7 +1026,7 @@ class _MaintenanceList extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
           ),
           child: ListTile(
-            leading: Icon(Icons.schedule, color: scheme.primary),
+            leading: Icon(LucideIcons.clock3, color: scheme.primary),
             title: Text(reminder.title),
             subtitle: Text(
               '${vehicle?.displayName ?? 'Vehicle'} - $dueInfo\n'
@@ -1319,20 +1320,20 @@ _TrendSignal _trendForSlope(double slope) {
   if (slope > 15) {
     return const _TrendSignal(
       title: 'Spending trend is increasing',
-      icon: Icons.trending_up,
+      icon: LucideIcons.trendingUp,
       color: Color(0xFFEF5350),
     );
   }
   if (slope < -15) {
     return const _TrendSignal(
       title: 'Spending trend is decreasing',
-      icon: Icons.trending_down,
+      icon: LucideIcons.trendingDown,
       color: Color(0xFF42A5F5),
     );
   }
   return const _TrendSignal(
     title: 'Spending trend is stable',
-    icon: Icons.trending_flat,
+    icon: LucideIcons.moveRight,
     color: Color(0xFF66BB6A),
   );
 }
@@ -1411,3 +1412,4 @@ extension _CategoryPeriodLabel on _CategoryPeriod {
 extension _FirstOrNull<T> on Iterable<T> {
   T? get firstOrNull => isEmpty ? null : first;
 }
+

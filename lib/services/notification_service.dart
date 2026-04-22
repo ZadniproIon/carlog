@@ -8,18 +8,19 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
 
   static Future<void> init() async {
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-
-    const settings = InitializationSettings(
-      android: androidSettings,
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
     );
+
+    const settings = InitializationSettings(android: androidSettings);
 
     await _plugin.initialize(settings);
 
     // Android 13+ runtime permission
-    final androidImpl =
-        _plugin.resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+    final androidImpl = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     await androidImpl?.requestNotificationsPermission();
   }
 
@@ -35,16 +36,20 @@ class NotificationService {
     const details = NotificationDetails(android: androidDetails);
 
     final messages = <({int id, String title, String body})>[
-      (id: 1, title: 'Passat: oil change coming up', body: 'Oil change due in 1 200 km.'),
+      (
+        id: 1,
+        title: 'Passat: oil change coming up',
+        body: 'Oil change due in 1 200 km.',
+      ),
       (
         id: 2,
         title: 'Model 3: tire rotation',
-        body: 'Tire rotation recommended at 26 000 km.'
+        body: 'Tire rotation recommended at 26 000 km.',
       ),
       (
         id: 3,
         title: 'Cayenne: hybrid system check',
-        body: 'Hybrid system check scheduled in 7 days.'
+        body: 'Hybrid system check scheduled in 7 days.',
       ),
     ];
 
@@ -62,3 +67,4 @@ class NotificationService {
     );
   }
 }
+

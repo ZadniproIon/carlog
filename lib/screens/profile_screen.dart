@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../models.dart';
 import '../services/notification_service.dart';
@@ -43,14 +44,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             IconButton(
               tooltip: 'Sign out',
               onPressed: _confirmLogout,
-              icon: const Icon(Icons.logout),
+              icon: const Icon(LucideIcons.logOut),
             ),
           ],
           bottom: const TabBar(
             tabs: [
-              Tab(text: 'Account', icon: Icon(Icons.person_outline)),
-              Tab(text: 'Preferences', icon: Icon(Icons.tune)),
-              Tab(text: 'Developer', icon: Icon(Icons.developer_mode)),
+              Tab(text: 'Account', icon: Icon(LucideIcons.user)),
+              Tab(
+                text: 'Preferences',
+                icon: Icon(LucideIcons.slidersHorizontal),
+              ),
+              Tab(text: 'Developer', icon: Icon(LucideIcons.code2)),
             ],
           ),
         ),
@@ -161,14 +165,14 @@ class _AccountTab extends StatelessWidget {
                         children: [
                           _Badge(
                             icon: user.isGuest
-                                ? Icons.person_off_outlined
-                                : Icons.verified_user_outlined,
+                                ? LucideIcons.userX
+                                : LucideIcons.userCheck,
                             label: user.isGuest ? 'Guest mode' : 'Signed in',
                           ),
                           _Badge(
                             icon: user.isCloudUser && !usingLocalData
-                                ? Icons.cloud_done_outlined
-                                : Icons.cloud_off_outlined,
+                                ? LucideIcons.cloud
+                                : LucideIcons.cloudOff,
                             label: user.isCloudUser && !usingLocalData
                                 ? 'Firebase account'
                                 : 'Local account',
@@ -185,7 +189,7 @@ class _AccountTab extends StatelessWidget {
         const SizedBox(height: 12),
         FilledButton.icon(
           onPressed: () => _showEditProfileDialog(context),
-          icon: const Icon(Icons.edit_outlined),
+          icon: const Icon(LucideIcons.edit3),
           label: const Text('Edit profile fields'),
         ),
         const SizedBox(height: 12),
@@ -384,7 +388,7 @@ class _PreferencesTabContainerState extends State<_PreferencesTabContainer> {
                 initialValue: parent.widget.themeMode,
                 decoration: const InputDecoration(
                   labelText: 'Mode',
-                  prefixIcon: Icon(Icons.palette_outlined),
+                  prefixIcon: Icon(LucideIcons.palette),
                 ),
                 items: const [
                   DropdownMenuItem(
@@ -417,7 +421,7 @@ class _PreferencesTabContainerState extends State<_PreferencesTabContainer> {
             ),
             value: parent.widget.demoModeEnabled,
             onChanged: parent.widget.onDemoModeChanged,
-            secondary: const Icon(Icons.science_outlined),
+            secondary: const Icon(LucideIcons.flaskConical),
           ),
         ),
         const SizedBox(height: 12),
@@ -433,7 +437,7 @@ class _PreferencesTabContainerState extends State<_PreferencesTabContainer> {
                 onChanged: (value) {
                   setState(() => _notificationsEnabled = value);
                 },
-                secondary: const Icon(Icons.notifications_outlined),
+                secondary: const Icon(LucideIcons.bell),
               ),
               const Divider(height: 0),
               SwitchListTile(
@@ -444,7 +448,7 @@ class _PreferencesTabContainerState extends State<_PreferencesTabContainer> {
                 onChanged: (value) {
                   setState(() => _maintenanceRemindersEnabled = value);
                 },
-                secondary: const Icon(Icons.build_circle_outlined),
+                secondary: const Icon(LucideIcons.wrench),
               ),
             ],
           ),
@@ -460,7 +464,7 @@ class _PreferencesTabContainerState extends State<_PreferencesTabContainer> {
             onChanged: (value) {
               setState(() => _privacyMode = value);
             },
-            secondary: const Icon(Icons.privacy_tip_outlined),
+            secondary: const Icon(LucideIcons.shield),
           ),
         ),
       ],
@@ -490,10 +494,10 @@ class _DeveloperTabContainerState extends State<_DeveloperTabContainer> {
             children: [
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.notifications_active_outlined),
+                leading: const Icon(LucideIcons.bell),
                 title: const Text('Simulate notifications'),
                 subtitle: const Text('Push 3 local demo notifications'),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(LucideIcons.chevronRight),
                 onTap: () {
                   NotificationService.showDemoNotifications(context);
                 },
@@ -501,10 +505,10 @@ class _DeveloperTabContainerState extends State<_DeveloperTabContainer> {
               const Divider(height: 0),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.play_arrow_outlined),
+                leading: const Icon(LucideIcons.play),
                 title: const Text('Run UI health check'),
                 subtitle: const Text('Show a mock system test result'),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: const Icon(LucideIcons.chevronRight),
                 onTap: () {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -531,7 +535,7 @@ class _DeveloperTabContainerState extends State<_DeveloperTabContainer> {
                 onChanged: (value) {
                   setState(() => _developerLogsEnabled = value);
                 },
-                secondary: const Icon(Icons.terminal_outlined),
+                secondary: const Icon(LucideIcons.terminal),
               ),
               const Divider(height: 0),
               SwitchListTile(
@@ -542,7 +546,7 @@ class _DeveloperTabContainerState extends State<_DeveloperTabContainer> {
                 onChanged: (value) {
                   setState(() => _mockFailuresEnabled = value);
                 },
-                secondary: const Icon(Icons.bug_report_outlined),
+                secondary: const Icon(LucideIcons.bug),
               ),
             ],
           ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../models.dart';
 
@@ -87,12 +88,12 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
                 segments: const [
                   ButtonSegment(
                     value: ReminderDueType.date,
-                    icon: Icon(Icons.calendar_today_outlined),
+                    icon: Icon(LucideIcons.calendar),
                     label: Text('Due date'),
                   ),
                   ButtonSegment(
                     value: ReminderDueType.mileage,
-                    icon: Icon(Icons.speed),
+                    icon: Icon(LucideIcons.gauge),
                     label: Text('Due mileage'),
                   ),
                 ],
@@ -114,7 +115,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(_formatDate(_dueDate)),
-                        const Icon(Icons.calendar_today_outlined),
+                        const Icon(LucideIcons.calendar),
                       ],
                     ),
                   ),
@@ -140,7 +141,7 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
               const SizedBox(height: 24),
               FilledButton.icon(
                 onPressed: _submit,
-                icon: const Icon(Icons.check),
+                icon: const Icon(LucideIcons.check),
                 label: Text(
                   widget.initialReminder == null
                       ? 'Save reminder'
@@ -193,3 +194,4 @@ class _AddReminderScreenState extends State<AddReminderScreen> {
         '${date.year}';
   }
 }
+

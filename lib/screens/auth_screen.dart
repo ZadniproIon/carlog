@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({
@@ -69,7 +70,7 @@ class _AuthScreenState extends State<AuthScreen> {
                                 context,
                               ).colorScheme.primaryContainer,
                               child: Icon(
-                                Icons.directions_car_filled,
+                                LucideIcons.car,
                                 size: 34,
                                 color: Theme.of(
                                   context,
@@ -96,12 +97,12 @@ class _AuthScreenState extends State<AuthScreen> {
                             ButtonSegment<bool>(
                               value: true,
                               label: Text('Log in'),
-                              icon: Icon(Icons.login),
+                              icon: Icon(LucideIcons.logIn),
                             ),
                             ButtonSegment<bool>(
                               value: false,
                               label: Text('Sign up'),
-                              icon: Icon(Icons.person_add_alt_1),
+                              icon: Icon(LucideIcons.userPlus),
                             ),
                           ],
                           selected: {_isLogin},
@@ -118,7 +119,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             textInputAction: TextInputAction.next,
                             decoration: const InputDecoration(
                               labelText: 'Full name',
-                              prefixIcon: Icon(Icons.person_outline),
+                              prefixIcon: Icon(LucideIcons.user),
                             ),
                             validator: (value) {
                               if (_isLogin) return null;
@@ -136,7 +137,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           textInputAction: TextInputAction.next,
                           decoration: const InputDecoration(
                             labelText: 'Email',
-                            prefixIcon: Icon(Icons.email_outlined),
+                            prefixIcon: Icon(LucideIcons.mail),
                           ),
                           validator: (value) {
                             final email = value?.trim() ?? '';
@@ -155,7 +156,7 @@ class _AuthScreenState extends State<AuthScreen> {
                               : TextInputAction.next,
                           decoration: InputDecoration(
                             labelText: 'Password',
-                            prefixIcon: const Icon(Icons.lock_outline),
+                            prefixIcon: const Icon(LucideIcons.lock),
                             suffixIcon: IconButton(
                               onPressed: () {
                                 setState(() {
@@ -164,8 +165,8 @@ class _AuthScreenState extends State<AuthScreen> {
                               },
                               icon: Icon(
                                 _obscurePassword
-                                    ? Icons.visibility_off_outlined
-                                    : Icons.visibility_outlined,
+                                    ? LucideIcons.eyeOff
+                                    : LucideIcons.eye,
                               ),
                             ),
                           ),
@@ -184,7 +185,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             textInputAction: TextInputAction.done,
                             decoration: const InputDecoration(
                               labelText: 'Confirm password',
-                              prefixIcon: Icon(Icons.lock_person_outlined),
+                              prefixIcon: Icon(LucideIcons.lock),
                             ),
                             validator: (value) {
                               if (_isLogin) return null;
@@ -208,8 +209,8 @@ class _AuthScreenState extends State<AuthScreen> {
                                 )
                               : Icon(
                                   _isLogin
-                                      ? Icons.login
-                                      : Icons.person_add_alt_1,
+                                      ? LucideIcons.logIn
+                                      : LucideIcons.userPlus,
                                 ),
                           label: Text(_isLogin ? 'Log in' : 'Create account'),
                         ),
@@ -217,14 +218,14 @@ class _AuthScreenState extends State<AuthScreen> {
                           const SizedBox(height: 8),
                           OutlinedButton.icon(
                             onPressed: _isLoading ? null : _submitGoogleSignIn,
-                            icon: const Icon(Icons.g_mobiledata),
+                            icon: const Icon(LucideIcons.chrome),
                             label: const Text('Continue with Google'),
                           ),
                         ],
                         const SizedBox(height: 8),
                         OutlinedButton.icon(
                           onPressed: _isLoading ? null : widget.onEnterGuest,
-                          icon: const Icon(Icons.person_off_outlined),
+                          icon: const Icon(LucideIcons.userX),
                           label: const Text('Continue as guest'),
                         ),
                         const SizedBox(height: 10),
@@ -360,3 +361,4 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 }
+
