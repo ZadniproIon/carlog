@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../widgets/spark_top_bar.dart';
 
 import '../models.dart';
 import '../widgets/expense_list_tile.dart';
+import '../widgets/demo_brand_logo.dart';
+import '../widgets/spark_top_bar.dart';
 
 class ExpensesScreen extends StatefulWidget {
   const ExpensesScreen({
@@ -26,19 +27,14 @@ class ExpensesScreen extends StatefulWidget {
 }
 
 class _ExpensesScreenState extends State<ExpensesScreen> {
-  Vehicle? _selectedVehicle;
   final Set<String> _selectedExpenseIds = <String>{};
+  _ExpenseFilters _filters = const _ExpenseFilters();
 
   bool get _isSelectionMode => _selectedExpenseIds.isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
-    final filteredExpenses = _selectedVehicle == null
-        ? widget.expenses
-        : widget.expenses
-              .where((e) => e.vehicleId == _selectedVehicle!.id)
-              .toList();
-
+    final filteredExpenses = _buildFilteredExpenses();
     final selectedCount = _selectedExpenseIds.length;
 
     return Scaffold(
@@ -72,7 +68,13 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                   icon: const Icon(LucideIcons.x),
                 ),
               ]
-            : null,
+            : [
+                IconButton(
+                  tooltip: 'Filters',
+                  onPressed: _openFilters,
+                  icon: const Icon(LucideIcons.slidersHorizontal),
+                ),
+              ],
       ),
       body: widget.expenses.isEmpty
           ? const Center(
@@ -80,47 +82,42 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             )
           : Column(
               children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<Vehicle?>(
-                          initialValue: _selectedVehicle,
-                          decoration: const InputDecoration(
-                            labelText: 'Filter by vehicle',
+                if (_filters.hasActiveFilters)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: Theme.of(context).dividerColor,
+                        ),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(children: _buildActiveFilterPills()),
                           ),
-                          items: [
-                            const DropdownMenuItem<Vehicle?>(
-                              value: null,
-                              child: Text('All vehicles'),
-                            ),
-                            ...widget.vehicles.map(
-                              (v) => DropdownMenuItem<Vehicle?>(
-                                value: v,
-                                child: Text(v.displayName),
-                              ),
-                            ),
-                          ],
-                          onChanged: (value) {
+                        ),
+                        IconButton(
+                          tooltip: 'Clear filters',
+                          onPressed: () {
                             setState(() {
-                              _selectedVehicle = value;
+                              _filters = const _ExpenseFilters();
                               _selectedExpenseIds.clear();
                             });
                           },
+                          icon: const Icon(LucideIcons.x, size: 18),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
                 if (filteredExpenses.isEmpty)
                   const Expanded(
                     child: Center(
-                      child: Text('No expenses for the selected vehicle.'),
+                      child: Text('No expenses match your current filters.'),
                     ),
                   )
                 else
@@ -179,6 +176,73 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     );
   }
 
+  List<CarExpense> _buildFilteredExpenses() {
+    final filtered = widget.expenses.where((expense) {
+      if (_filters.vehicleIds.isNotEmpty &&
+          !_filters.vehicleIds.contains(expense.vehicleId)) {
+        return false;
+      }
+      if (_filters.categories.isNotEmpty &&
+          !_filters.categories.contains(expense.category)) {
+        return false;
+      }
+
+      final expenseDay = DateTime(
+        expense.date.year,
+        expense.date.month,
+        expense.date.day,
+      );
+
+      if (_filters.startDate != null) {
+        final start = DateTime(
+          _filters.startDate!.year,
+          _filters.startDate!.month,
+          _filters.startDate!.day,
+        );
+        if (expenseDay.isBefore(start)) {
+          return false;
+        }
+      }
+
+      if (_filters.endDate != null) {
+        final end = DateTime(
+          _filters.endDate!.year,
+          _filters.endDate!.month,
+          _filters.endDate!.day,
+        );
+        if (expenseDay.isAfter(end)) {
+          return false;
+        }
+      }
+
+      return true;
+    }).toList();
+
+    filtered.sort((a, b) => b.date.compareTo(a.date));
+    return filtered;
+  }
+
+  Future<void> _openFilters() async {
+    final result = await Navigator.of(context).push<_ExpenseFilters>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (context) => _ExpenseFiltersScreen(
+          initialFilters: _filters,
+          vehicles: widget.vehicles,
+        ),
+      ),
+    );
+
+    if (result == null) {
+      return;
+    }
+
+    setState(() {
+      _filters = result;
+      _selectedExpenseIds.clear();
+    });
+  }
+
   void _toggleSelection(String expenseId) {
     setState(() {
       if (_selectedExpenseIds.contains(expenseId)) {
@@ -224,6 +288,362 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     setState(() {
       _selectedExpenseIds.clear();
     });
+  }
+
+  List<Widget> _buildActiveFilterPills() {
+    final pills = <Widget>[];
+
+    for (final vehicleId in _filters.vehicleIds) {
+      final vehicle = widget.vehicles
+          .where((v) => v.id == vehicleId)
+          .firstOrNull;
+      if (vehicle == null) continue;
+      pills.add(
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: Chip(
+            avatar: DemoBrandLogo(
+              brand: vehicle.brand,
+              demoModeEnabled: true,
+              size: 16,
+            ),
+            label: Text(vehicle.displayName),
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+      );
+    }
+
+    for (final category in _filters.categories) {
+      pills.add(
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: Chip(
+            avatar: Icon(expenseCategoryIcon(category), size: 16),
+            label: Text(expenseCategoryLabel(category)),
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+      );
+    }
+
+    if (_filters.startDate != null || _filters.endDate != null) {
+      final from = _filters.startDate == null
+          ? 'Any'
+          : _formatDate(_filters.startDate!);
+      final to = _filters.endDate == null
+          ? 'Any'
+          : _formatDate(_filters.endDate!);
+      pills.add(
+        Chip(
+          avatar: const Icon(LucideIcons.calendar, size: 16),
+          label: Text('$from - $to'),
+          visualDensity: VisualDensity.compact,
+        ),
+      );
+    }
+
+    return pills;
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}.'
+        '${date.month.toString().padLeft(2, '0')}.'
+        '${date.year}';
+  }
+}
+
+class _ExpenseFiltersScreen extends StatefulWidget {
+  const _ExpenseFiltersScreen({
+    required this.initialFilters,
+    required this.vehicles,
+  });
+
+  final _ExpenseFilters initialFilters;
+  final List<Vehicle> vehicles;
+
+  @override
+  State<_ExpenseFiltersScreen> createState() => _ExpenseFiltersScreenState();
+}
+
+class _ExpenseFiltersScreenState extends State<_ExpenseFiltersScreen> {
+  late Set<String> _vehicleIds;
+  late Set<ExpenseCategory> _categories;
+  DateTime? _startDate;
+  DateTime? _endDate;
+
+  @override
+  void initState() {
+    super.initState();
+    _vehicleIds = Set<String>.from(widget.initialFilters.vehicleIds);
+    _categories = Set<ExpenseCategory>.from(widget.initialFilters.categories);
+    _startDate = widget.initialFilters.startDate;
+    _endDate = widget.initialFilters.endDate;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: const SparkTopBar(title: Text('Filters')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        children: [
+          Text('Vehicles', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: widget.vehicles.map((vehicle) {
+              final selected = _vehicleIds.contains(vehicle.id);
+              return FilterChip(
+                selected: selected,
+                label: Text(vehicle.displayName),
+                avatar: DemoBrandLogo(
+                  brand: vehicle.brand,
+                  demoModeEnabled: true,
+                  size: 16,
+                ),
+                onSelected: (value) {
+                  setState(() {
+                    if (value) {
+                      _vehicleIds.add(vehicle.id);
+                    } else {
+                      _vehicleIds.remove(vehicle.id);
+                    }
+                  });
+                },
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+          Text('Categories', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: ExpenseCategory.values.map((category) {
+              final selected = _categories.contains(category);
+              return FilterChip(
+                selected: selected,
+                label: Text(expenseCategoryLabel(category)),
+                avatar: Icon(expenseCategoryIcon(category), size: 16),
+                onSelected: (value) {
+                  setState(() {
+                    if (value) {
+                      _categories.add(category);
+                    } else {
+                      _categories.remove(category);
+                    }
+                  });
+                },
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+          Text('Date range', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _pickStartDate,
+                  icon: const Icon(LucideIcons.calendar, size: 16),
+                  label: Text(
+                    _startDate == null
+                        ? 'Start date'
+                        : _formatDate(_startDate!),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _pickEndDate,
+                  icon: const Icon(LucideIcons.calendar, size: 16),
+                  label: Text(
+                    _endDate == null ? 'End date' : _formatDate(_endDate!),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ActionChip(
+                label: const Text('Last 30 days'),
+                onPressed: () => _setLastDays(30),
+              ),
+              ActionChip(
+                label: const Text('Last 90 days'),
+                onPressed: () => _setLastDays(90),
+              ),
+              ActionChip(
+                label: const Text('This year'),
+                onPressed: _setThisYear,
+              ),
+              ActionChip(
+                label: const Text('All time'),
+                onPressed: () {
+                  setState(() {
+                    _startDate = null;
+                    _endDate = null;
+                  });
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    setState(() {
+                      _vehicleIds.clear();
+                      _categories.clear();
+                      _startDate = null;
+                      _endDate = null;
+                    });
+                  },
+                  child: const Text('Reset'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(
+                      _ExpenseFilters(
+                        vehicleIds: Set<String>.from(_vehicleIds),
+                        categories: Set<ExpenseCategory>.from(_categories),
+                        startDate: _startDate,
+                        endDate: _endDate,
+                      ),
+                    );
+                  },
+                  child: const Text('Apply'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickStartDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate ?? _endDate ?? now,
+      firstDate: DateTime(now.year - 10),
+      lastDate: DateTime(now.year + 1),
+    );
+    if (picked == null) return;
+    setState(() {
+      _startDate = picked;
+      if (_endDate != null && _endDate!.isBefore(picked)) {
+        _endDate = picked;
+      }
+    });
+  }
+
+  Future<void> _pickEndDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? _startDate ?? now,
+      firstDate: DateTime(now.year - 10),
+      lastDate: DateTime(now.year + 1),
+    );
+    if (picked == null) return;
+    setState(() {
+      _endDate = picked;
+      if (_startDate != null && _startDate!.isAfter(picked)) {
+        _startDate = picked;
+      }
+    });
+  }
+
+  void _setLastDays(int days) {
+    final now = DateTime.now();
+    setState(() {
+      _endDate = DateTime(now.year, now.month, now.day);
+      _startDate = _endDate!.subtract(Duration(days: days - 1));
+    });
+  }
+
+  void _setThisYear() {
+    final now = DateTime.now();
+    setState(() {
+      _startDate = DateTime(now.year, 1, 1);
+      _endDate = DateTime(now.year, now.month, now.day);
+    });
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}.'
+        '${date.month.toString().padLeft(2, '0')}.'
+        '${date.year}';
+  }
+}
+
+class _ExpenseFilters {
+  const _ExpenseFilters({
+    this.vehicleIds = const <String>{},
+    this.categories = const <ExpenseCategory>{},
+    this.startDate,
+    this.endDate,
+  });
+
+  final Set<String> vehicleIds;
+  final Set<ExpenseCategory> categories;
+  final DateTime? startDate;
+  final DateTime? endDate;
+
+  bool get hasActiveFilters =>
+      vehicleIds.isNotEmpty ||
+      categories.isNotEmpty ||
+      startDate != null ||
+      endDate != null;
+
+  String summary(List<Vehicle> vehicles) {
+    final parts = <String>[];
+    if (vehicleIds.isNotEmpty) {
+      final selectedNames = vehicles
+          .where((v) => vehicleIds.contains(v.id))
+          .map((v) => v.displayName)
+          .toList();
+      if (selectedNames.length <= 2) {
+        parts.add(selectedNames.join(', '));
+      } else {
+        parts.add('${selectedNames.length} vehicles');
+      }
+    }
+    if (categories.isNotEmpty) {
+      if (categories.length <= 2) {
+        parts.add(categories.map(expenseCategoryLabel).join(', '));
+      } else {
+        parts.add('${categories.length} categories');
+      }
+    }
+    if (startDate != null || endDate != null) {
+      final from = startDate == null
+          ? 'Any'
+          : '${startDate!.day.toString().padLeft(2, '0')}.'
+                '${startDate!.month.toString().padLeft(2, '0')}.'
+                '${startDate!.year}';
+      final to = endDate == null
+          ? 'Any'
+          : '${endDate!.day.toString().padLeft(2, '0')}.'
+                '${endDate!.month.toString().padLeft(2, '0')}.'
+                '${endDate!.year}';
+      parts.add('$from - $to');
+    }
+    return parts.join('  •  ');
   }
 }
 
