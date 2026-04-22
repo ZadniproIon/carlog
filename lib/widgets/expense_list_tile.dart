@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 
 import '../models.dart';
 
@@ -8,8 +9,11 @@ class ExpenseListTile extends StatelessWidget {
     required this.expense,
     required this.vehicle,
     this.margin = const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+    this.flat = false,
     this.onTap,
     this.onLongPress,
+    this.onEdit,
+    this.onDelete,
     this.trailing,
     this.isSelected = false,
   });
@@ -17,8 +21,11 @@ class ExpenseListTile extends StatelessWidget {
   final CarExpense expense;
   final Vehicle? vehicle;
   final EdgeInsetsGeometry margin;
+  final bool flat;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
   final Widget? trailing;
   final bool isSelected;
 
@@ -27,51 +34,57 @@ class ExpenseListTile extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final palette = _categoryPalette(expense.category, scheme);
 
+    final tile = ListTile(
+      onTap: onTap ?? () => _showExpenseDetails(context),
+      onLongPress: onLongPress,
+      selected: isSelected,
+      leading: CircleAvatar(
+        backgroundColor: palette.background,
+        child: Icon(
+          expenseCategoryIcon(expense.category),
+          color: palette.foreground,
+        ),
+      ),
+      title: Text(
+        expense.description,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 4),
+          Text(
+            '${expenseCategoryLabel(expense.category)} • '
+            '${vehicle?.displayName ?? 'Unknown vehicle'}',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${_formatDate(expense.date)} - ${expense.mileage} km',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ),
+      trailing:
+          trailing ??
+          Text(
+            '${expense.amount.toStringAsFixed(0)} lei',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
+    );
+
+    if (flat) {
+      return tile;
+    }
+
     return Card(
       margin: margin,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 0,
-      child: ListTile(
-        onTap: onTap ?? () => _showExpenseDetails(context),
-        onLongPress: onLongPress,
-        selected: isSelected,
-        leading: CircleAvatar(
-          backgroundColor: palette.background,
-          child: Icon(
-            expenseCategoryIcon(expense.category),
-            color: palette.foreground,
-          ),
-        ),
-        title: Text(
-          expense.description,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text(
-              '${expenseCategoryLabel(expense.category)} • '
-              '${vehicle?.displayName ?? 'Unknown vehicle'}',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${_formatDate(expense.date)} - ${expense.mileage} km',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-        trailing:
-            trailing ??
-            Text(
-              '${expense.amount.toStringAsFixed(0)} lei',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-      ),
+      child: tile,
     );
   }
 
@@ -125,13 +138,70 @@ class ExpenseListTile extends StatelessWidget {
                 _DetailRow(label: 'Date', value: _formatDateFull(expense.date)),
                 _DetailRow(label: 'Mileage', value: '${expense.mileage} km'),
                 const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Close'),
+                if (onEdit != null || onDelete != null) ...[
+                  Row(
+                    children: [
+                      if (onEdit != null)
+                        Expanded(
+                          child: SizedBox(
+                            height: 44,
+                            child: FilledButton.icon(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                                onEdit?.call();
+                              },
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.primary,
+                                foregroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.onPrimary,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                              ),
+                              icon: const Icon(LucideIcons.edit3, size: 16),
+                              label: const Text('Edit'),
+                            ),
+                          ),
+                        ),
+                      if (onEdit != null && onDelete != null)
+                        const SizedBox(width: 10),
+                      if (onDelete != null)
+                        Expanded(
+                          child: SizedBox(
+                            height: 44,
+                            child: FilledButton.icon(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                                onDelete?.call();
+                              },
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.error,
+                                foregroundColor: Theme.of(
+                                  context,
+                                ).colorScheme.onError,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                              ),
+                              icon: const Icon(LucideIcons.trash2, size: 16),
+                              label: const Text('Delete'),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -242,4 +312,3 @@ class _CategoryPalette {
   final Color background;
   final Color foreground;
 }
-

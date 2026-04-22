@@ -125,8 +125,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                   )
                 else
                   Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: ListView.separated(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
                       itemCount: filteredExpenses.length,
                       itemBuilder: (context, index) {
                         final expense = filteredExpenses[index];
@@ -140,7 +140,18 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                         return ExpenseListTile(
                           expense: expense,
                           vehicle: vehicle,
+                          flat: true,
                           isSelected: selected,
+                          onEdit: _isSelectionMode
+                              ? null
+                              : () {
+                                  widget.onEditExpense(expense);
+                                },
+                          onDelete: _isSelectionMode
+                              ? null
+                              : () {
+                                  widget.onDeleteExpense(expense.id);
+                                },
                           onLongPress: () => _toggleSelection(expense.id),
                           onTap: _isSelectionMode
                               ? () => _toggleSelection(expense.id)
@@ -151,25 +162,14 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                                   onChanged: (_) =>
                                       _toggleSelection(expense.id),
                                 )
-                              : PopupMenuButton<String>(
-                                  onSelected: (value) {
-                                    if (value == 'edit') {
-                                      widget.onEditExpense(expense);
-                                    } else if (value == 'delete') {
-                                      widget.onDeleteExpense(expense.id);
-                                    }
-                                  },
-                                  itemBuilder: (context) => const [
-                                    PopupMenuItem(
-                                      value: 'edit',
-                                      child: Text('Edit'),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'delete',
-                                      child: Text('Delete'),
-                                    ),
-                                  ],
-                                ),
+                              : null,
+                        );
+                      },
+                      separatorBuilder: (context, index) {
+                        return Divider(
+                          height: 1,
+                          thickness: 1,
+                          color: Theme.of(context).dividerColor,
                         );
                       },
                     ),
