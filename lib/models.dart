@@ -3,6 +3,65 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 enum ExpenseCategory { fuel, service, insurance, parts, other }
 
+enum FuelPriceCountry { moldova, romania, germany, unitedStates }
+
+FuelPriceCountry fuelPriceCountryFromKey(String value) {
+  switch (value.toLowerCase().trim()) {
+    case 'moldova':
+      return FuelPriceCountry.moldova;
+    case 'romania':
+      return FuelPriceCountry.romania;
+    case 'germany':
+      return FuelPriceCountry.germany;
+    case 'unitedstates':
+    case 'united_states':
+    case 'usa':
+    case 'us':
+      return FuelPriceCountry.unitedStates;
+    default:
+      return FuelPriceCountry.moldova;
+  }
+}
+
+String fuelPriceCountryKey(FuelPriceCountry country) {
+  switch (country) {
+    case FuelPriceCountry.moldova:
+      return 'moldova';
+    case FuelPriceCountry.romania:
+      return 'romania';
+    case FuelPriceCountry.germany:
+      return 'germany';
+    case FuelPriceCountry.unitedStates:
+      return 'united_states';
+  }
+}
+
+String fuelPriceCountryLabel(FuelPriceCountry country) {
+  switch (country) {
+    case FuelPriceCountry.moldova:
+      return 'Moldova';
+    case FuelPriceCountry.romania:
+      return 'Romania';
+    case FuelPriceCountry.germany:
+      return 'Germany';
+    case FuelPriceCountry.unitedStates:
+      return 'United States';
+  }
+}
+
+String fuelPriceCountryGlobalSlug(FuelPriceCountry country) {
+  switch (country) {
+    case FuelPriceCountry.moldova:
+      return 'Moldova';
+    case FuelPriceCountry.romania:
+      return 'Romania';
+    case FuelPriceCountry.germany:
+      return 'Germany';
+    case FuelPriceCountry.unitedStates:
+      return 'United_States';
+  }
+}
+
 enum ExpenseCurrency { ron, eur, usd, gbp, mdl }
 
 ExpenseCurrency expenseCurrencyFromKey(String value) {

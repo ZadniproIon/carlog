@@ -12,8 +12,10 @@ class ProfileScreen extends StatefulWidget {
     required this.user,
     required this.themeMode,
     required this.expenseCurrency,
+    required this.fuelPriceCountry,
     required this.onThemeModeChanged,
     required this.onExpenseCurrencyChanged,
+    required this.onFuelPriceCountryChanged,
     required this.onLogout,
     required this.firebaseEnabled,
     required this.usingLocalData,
@@ -25,8 +27,10 @@ class ProfileScreen extends StatefulWidget {
   final MockAuthUser user;
   final ThemeMode themeMode;
   final ExpenseCurrency expenseCurrency;
+  final FuelPriceCountry fuelPriceCountry;
   final ValueChanged<ThemeMode> onThemeModeChanged;
   final ValueChanged<ExpenseCurrency> onExpenseCurrencyChanged;
+  final ValueChanged<FuelPriceCountry> onFuelPriceCountryChanged;
   final VoidCallback onLogout;
   final bool firebaseEnabled;
   final bool usingLocalData;
@@ -87,6 +91,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _CurrencyItem(
                 value: widget.expenseCurrency,
                 onChanged: widget.onExpenseCurrencyChanged,
+              ),
+              _FuelPriceCountryItem(
+                value: widget.fuelPriceCountry,
+                onChanged: widget.onFuelPriceCountryChanged,
               ),
               _MenuSwitchItem(
                 icon: LucideIcons.bell,
@@ -613,6 +621,64 @@ class _CurrencyItem extends StatelessWidget {
                     (currency) => DropdownMenuItem(
                       value: currency,
                       child: Text(expenseCurrencyCode(currency)),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (next) {
+                if (next != null) {
+                  onChanged(next);
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FuelPriceCountryItem extends StatelessWidget {
+  const _FuelPriceCountryItem({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final FuelPriceCountry value;
+  final ValueChanged<FuelPriceCountry> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = Theme.of(context).textTheme.bodySmall?.color;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.globe, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Fuel price country'),
+                const SizedBox(height: 2),
+                Text(
+                  'Used for dashboard fuel trend and market prices.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: muted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<FuelPriceCountry>(
+              value: value,
+              items: FuelPriceCountry.values
+                  .map(
+                    (country) => DropdownMenuItem(
+                      value: country,
+                      child: Text(fuelPriceCountryLabel(country)),
                     ),
                   )
                   .toList(),

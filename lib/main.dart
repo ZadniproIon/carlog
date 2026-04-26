@@ -465,6 +465,7 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   static const String _expenseCurrencyPrefKey = 'expense_currency';
+  static const String _fuelPriceCountryPrefKey = 'fuel_price_country';
   int _selectedIndex = 0;
   late List<Vehicle> _vehicles;
   late List<CarExpense> _expenses;
@@ -472,6 +473,7 @@ class _HomeShellState extends State<HomeShell> {
   bool _usingLocalData = true;
   bool _demoModeEnabled = true;
   ExpenseCurrency _expenseCurrency = ExpenseCurrency.mdl;
+  FuelPriceCountry _fuelPriceCountry = FuelPriceCountry.moldova;
   CarlogDataSnapshot? _cachedNonDemoSnapshot;
 
   @override
@@ -489,11 +491,19 @@ class _HomeShellState extends State<HomeShell> {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     final storedCurrency = prefs.getString(_expenseCurrencyPrefKey);
+    final storedFuelCountry = prefs.getString(_fuelPriceCountryPrefKey);
     if (!mounted || storedCurrency == null || storedCurrency.trim().isEmpty) {
-      return;
+      if (storedFuelCountry == null || storedFuelCountry.trim().isEmpty) {
+        return;
+      }
     }
     setState(() {
-      _expenseCurrency = expenseCurrencyFromKey(storedCurrency);
+      if (storedCurrency != null && storedCurrency.trim().isNotEmpty) {
+        _expenseCurrency = expenseCurrencyFromKey(storedCurrency);
+      }
+      if (storedFuelCountry != null && storedFuelCountry.trim().isNotEmpty) {
+        _fuelPriceCountry = fuelPriceCountryFromKey(storedFuelCountry);
+      }
     });
   }
 
@@ -506,6 +516,17 @@ class _HomeShellState extends State<HomeShell> {
     });
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_expenseCurrencyPrefKey, currency.name);
+  }
+
+  Future<void> _onFuelPriceCountryChanged(FuelPriceCountry country) async {
+    if (_fuelPriceCountry == country) {
+      return;
+    }
+    setState(() {
+      _fuelPriceCountry = country;
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_fuelPriceCountryPrefKey, fuelPriceCountryKey(country));
   }
 
   Future<void> _loadInitialData({bool forceRefresh = false}) async {
@@ -1034,8 +1055,10 @@ class _HomeShellState extends State<HomeShell> {
         user: widget.currentUser,
         themeMode: widget.themeMode,
         expenseCurrency: _expenseCurrency,
+        fuelPriceCountry: _fuelPriceCountry,
         onThemeModeChanged: widget.onThemeModeChanged,
         onExpenseCurrencyChanged: _onExpenseCurrencyChanged,
+        onFuelPriceCountryChanged: _onFuelPriceCountryChanged,
         onLogout: widget.onLogout,
         firebaseEnabled: widget.firebaseEnabled,
         usingLocalData: _usingLocalData,

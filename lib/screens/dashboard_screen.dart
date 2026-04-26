@@ -6,6 +6,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../widgets/spark_top_bar.dart';
 
 import '../models.dart';
+import '../widgets/demo_brand_logo.dart';
 import '../widgets/expense_list_tile.dart';
 
 enum _CategoryPeriod { threeMonths, sixMonths, twelveMonths, allTime }
@@ -29,9 +30,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  static const String _allVehiclesKey = '__all__';
-
-  String? _selectedVehicleId;
+  _DashboardFilters _filters = const _DashboardFilters();
   _CategoryPeriod _categoryPeriod = _CategoryPeriod.sixMonths;
   int _touchedPieIndex = -1;
   int _touchedForecastGroupIndex = -1;
@@ -77,190 +76,184 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final recentExpenses = filteredExpenses.take(5).toList();
 
     return Scaffold(
-      appBar: SparkTopBar(title: const Text('Dashboard')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Card(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Vehicle scope',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      initialValue: _selectedVehicleId ?? _allVehiclesKey,
-                      decoration: const InputDecoration(
-                        labelText: 'Show analytics for',
-                        prefixIcon: Icon(LucideIcons.car),
-                      ),
-                      items: [
-                        const DropdownMenuItem<String>(
-                          value: _allVehiclesKey,
-                          child: Text('All vehicles'),
-                        ),
-                        ...widget.vehicles.map(
-                          (vehicle) => DropdownMenuItem<String>(
-                            value: vehicle.id,
-                            child: Text(
-                              '${vehicle.displayName} (${vehicle.year})',
-                            ),
-                          ),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        if (value == null) {
-                          return;
-                        }
-                        setState(() {
-                          _selectedVehicleId = value == _allVehiclesKey
-                              ? null
-                              : value;
-                          _touchedPieIndex = -1;
-                          _touchedForecastGroupIndex = -1;
-                          _touchedForecastRodIndex = -1;
-                          _touchedHistogramIndex = -1;
-                        });
-                      },
-                    ),
-                  ],
+      appBar: SparkTopBar(
+        title: const Text('Dashboard'),
+        actions: [
+          IconButton(
+            tooltip: 'Filters',
+            onPressed: _openFilters,
+            icon: const Icon(LucideIcons.slidersHorizontal),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          if (_filters.hasActiveFilters)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Theme.of(context).dividerColor),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _KpiCard(
-                    title: 'This month',
-                    value: '${thisMonthActual.toStringAsFixed(0)} lei',
-                    subtitle: 'Actual spending',
-                    icon: LucideIcons.wallet,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _KpiCard(
-                    title: 'Next month',
-                    value: '${nextMonthPrediction.toStringAsFixed(0)} lei',
-                    subtitle: 'Predicted by trend',
-                    icon: LucideIcons.trendingUp,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            _ForecastInsightCard(
-              slope: forecast.slope,
-              projectedSixMonthCost: forecastSixMonthTotal,
-            ),
-            const SizedBox(height: 12),
-            _CategoryDistributionCard(
-              categoryTotals: categoryTotals,
-              selectedPeriod: _categoryPeriod,
-              onPeriodChanged: (period) {
-                setState(() {
-                  _categoryPeriod = period;
-                  _touchedPieIndex = -1;
-                });
-              },
-              touchedIndex: _touchedPieIndex,
-              onTouchedIndexChanged: (index) {
-                setState(() => _touchedPieIndex = index);
-              },
-            ),
-            const SizedBox(height: 12),
-            _MonthlyForecastCard(
-              history: forecast.history,
-              predicted: forecast.predicted,
-              touchedGroupIndex: _touchedForecastGroupIndex,
-              touchedRodIndex: _touchedForecastRodIndex,
-              onTouchedBarChanged: (groupIndex, rodIndex) {
-                setState(() {
-                  _touchedForecastGroupIndex = groupIndex;
-                  _touchedForecastRodIndex = rodIndex;
-                });
-              },
-            ),
-            const SizedBox(height: 12),
-            _ExpenseHistogramCard(
-              bins: weeklyHistogramBins,
-              touchedIndex: _touchedHistogramIndex,
-              onTouchedIndexChanged: (index) {
-                setState(() => _touchedHistogramIndex = index);
-              },
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Upcoming maintenance',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            _MaintenanceList(
-              reminders: filteredReminders,
-              vehicles: widget.vehicles,
-              onTapReminder: widget.onEditReminder,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Recent expenses',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            if (recentExpenses.isEmpty)
-              Card(
-                elevation: 0,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    'No expenses for this scope yet.',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ),
-              )
-            else
-              Column(
+              child: Row(
                 children: [
-                  for (var i = 0; i < recentExpenses.length; i++) ...[
-                    ExpenseListTile(
-                      expense: recentExpenses[i],
-                      vehicle: widget.vehicles
-                          .where(
-                            (vehicle) => vehicle.id == recentExpenses[i].vehicleId,
-                          )
-                          .firstOrNull,
-                      flat: true,
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(children: _buildActiveFilterPills()),
                     ),
-                    if (i < recentExpenses.length - 1)
-                      Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: Theme.of(context).dividerColor,
-                      ),
-                  ],
+                  ),
+                  IconButton(
+                    tooltip: 'Clear filters',
+                    onPressed: () {
+                      setState(() {
+                        _filters = const _DashboardFilters();
+                        _resetChartTouches();
+                      });
+                    },
+                    icon: const Icon(LucideIcons.x, size: 18),
+                  ),
                 ],
               ),
-          ],
-        ),
+            ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _KpiCard(
+                          title: 'This month',
+                          value: '${thisMonthActual.toStringAsFixed(0)} lei',
+                          subtitle: 'Actual spending',
+                          icon: LucideIcons.wallet,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _KpiCard(
+                          title: 'Next month',
+                          value:
+                              '${nextMonthPrediction.toStringAsFixed(0)} lei',
+                          subtitle: 'Predicted by trend',
+                          icon: LucideIcons.trendingUp,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _ForecastInsightCard(
+                    slope: forecast.slope,
+                    projectedSixMonthCost: forecastSixMonthTotal,
+                  ),
+                  const SizedBox(height: 12),
+                  _CategoryDistributionCard(
+                    categoryTotals: categoryTotals,
+                    selectedPeriod: _categoryPeriod,
+                    onPeriodChanged: (period) {
+                      setState(() {
+                        _categoryPeriod = period;
+                        _touchedPieIndex = -1;
+                      });
+                    },
+                    touchedIndex: _touchedPieIndex,
+                    onTouchedIndexChanged: (index) {
+                      setState(() => _touchedPieIndex = index);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _MonthlyForecastCard(
+                    history: forecast.history,
+                    predicted: forecast.predicted,
+                    touchedGroupIndex: _touchedForecastGroupIndex,
+                    touchedRodIndex: _touchedForecastRodIndex,
+                    onTouchedBarChanged: (groupIndex, rodIndex) {
+                      setState(() {
+                        _touchedForecastGroupIndex = groupIndex;
+                        _touchedForecastRodIndex = rodIndex;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _ExpenseHistogramCard(
+                    bins: weeklyHistogramBins,
+                    touchedIndex: _touchedHistogramIndex,
+                    onTouchedIndexChanged: (index) {
+                      setState(() => _touchedHistogramIndex = index);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Upcoming maintenance',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  _MaintenanceList(
+                    reminders: filteredReminders,
+                    vehicles: widget.vehicles,
+                    onTapReminder: widget.onEditReminder,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Recent expenses',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  if (recentExpenses.isEmpty)
+                    Card(
+                      elevation: 0,
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          'No expenses for this scope yet.',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                    )
+                  else
+                    Column(
+                      children: [
+                        for (var i = 0; i < recentExpenses.length; i++) ...[
+                          ExpenseListTile(
+                            expense: recentExpenses[i],
+                            vehicle: widget.vehicles
+                                .where(
+                                  (vehicle) =>
+                                      vehicle.id == recentExpenses[i].vehicleId,
+                                )
+                                .firstOrNull,
+                            flat: true,
+                          ),
+                          if (i < recentExpenses.length - 1)
+                            Divider(
+                              height: 1,
+                              thickness: 1,
+                              color: Theme.of(context).dividerColor,
+                            ),
+                        ],
+                      ],
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   List<CarExpense> _buildFilteredExpenses() {
-    final filtered = _selectedVehicleId == null
+    final filtered = _filters.vehicleIds.isEmpty
         ? List<CarExpense>.from(widget.expenses)
         : widget.expenses
-              .where((expense) => expense.vehicleId == _selectedVehicleId)
+              .where(
+                (expense) => _filters.vehicleIds.contains(expense.vehicleId),
+              )
               .toList();
 
     filtered.sort((a, b) => b.date.compareTo(a.date));
@@ -268,10 +261,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   List<MaintenanceReminder> _buildFilteredReminders() {
-    final filtered = _selectedVehicleId == null
+    final filtered = _filters.vehicleIds.isEmpty
         ? List<MaintenanceReminder>.from(widget.reminders)
         : widget.reminders
-              .where((reminder) => reminder.vehicleId == _selectedVehicleId)
+              .where(
+                (reminder) => _filters.vehicleIds.contains(reminder.vehicleId),
+              )
               .toList();
 
     filtered.sort((a, b) {
@@ -281,6 +276,162 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
     return filtered;
   }
+
+  Future<void> _openFilters() async {
+    final result = await Navigator.of(context).push<_DashboardFilters>(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (context) => _DashboardFiltersScreen(
+          initialFilters: _filters,
+          vehicles: widget.vehicles,
+        ),
+      ),
+    );
+
+    if (result == null) {
+      return;
+    }
+
+    setState(() {
+      _filters = result;
+      _resetChartTouches();
+    });
+  }
+
+  void _resetChartTouches() {
+    _touchedPieIndex = -1;
+    _touchedForecastGroupIndex = -1;
+    _touchedForecastRodIndex = -1;
+    _touchedHistogramIndex = -1;
+  }
+
+  List<Widget> _buildActiveFilterPills() {
+    final pills = <Widget>[];
+
+    for (final vehicleId in _filters.vehicleIds) {
+      final vehicle = widget.vehicles
+          .where((item) => item.id == vehicleId)
+          .firstOrNull;
+      if (vehicle == null) {
+        continue;
+      }
+      pills.add(
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: Chip(
+            avatar: DemoBrandLogo(
+              brand: vehicle.brand,
+              demoModeEnabled: true,
+              size: 16,
+            ),
+            label: Text(vehicle.displayName),
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+      );
+    }
+
+    return pills;
+  }
+}
+
+class _DashboardFiltersScreen extends StatefulWidget {
+  const _DashboardFiltersScreen({
+    required this.initialFilters,
+    required this.vehicles,
+  });
+
+  final _DashboardFilters initialFilters;
+  final List<Vehicle> vehicles;
+
+  @override
+  State<_DashboardFiltersScreen> createState() =>
+      _DashboardFiltersScreenState();
+}
+
+class _DashboardFiltersScreenState extends State<_DashboardFiltersScreen> {
+  late Set<String> _vehicleIds;
+
+  @override
+  void initState() {
+    super.initState();
+    _vehicleIds = Set<String>.from(widget.initialFilters.vehicleIds);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: const SparkTopBar(title: Text('Filters')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        children: [
+          Text('Vehicles', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: widget.vehicles.map((vehicle) {
+              final selected = _vehicleIds.contains(vehicle.id);
+              return FilterChip(
+                selected: selected,
+                label: Text(vehicle.displayName),
+                avatar: DemoBrandLogo(
+                  brand: vehicle.brand,
+                  demoModeEnabled: true,
+                  size: 16,
+                ),
+                onSelected: (value) {
+                  setState(() {
+                    if (value) {
+                      _vehicleIds.add(vehicle.id);
+                    } else {
+                      _vehicleIds.remove(vehicle.id);
+                    }
+                  });
+                },
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {
+                    setState(() {
+                      _vehicleIds.clear();
+                    });
+                  },
+                  child: const Text('Reset'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(
+                      _DashboardFilters(
+                        vehicleIds: Set<String>.from(_vehicleIds),
+                      ),
+                    );
+                  },
+                  child: const Text('Apply'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DashboardFilters {
+  const _DashboardFilters({this.vehicleIds = const <String>{}});
+
+  final Set<String> vehicleIds;
+
+  bool get hasActiveFilters => vehicleIds.isNotEmpty;
 }
 
 class _KpiCard extends StatelessWidget {
@@ -1057,10 +1208,7 @@ class _MaintenanceList extends StatelessWidget {
                   onTap: () => onTapReminder(reminder),
                   leading: CircleAvatar(
                     backgroundColor: iconBackground,
-                    child: Icon(
-                      LucideIcons.wrench,
-                      color: iconForeground,
-                    ),
+                    child: Icon(LucideIcons.wrench, color: iconForeground),
                   ),
                   title: Text(
                     reminder.title,
@@ -1088,7 +1236,9 @@ class _MaintenanceList extends StatelessWidget {
       return 'Due on ${_formatDate(reminder.dueDate!)}';
     }
     if (reminder.dueMileage != null) {
-      final unit = distanceUnitShortLabel(vehicle?.distanceUnit ?? DistanceUnit.km);
+      final unit = distanceUnitShortLabel(
+        vehicle?.distanceUnit ?? DistanceUnit.km,
+      );
       return 'Due at ${reminder.dueMileage} $unit';
     }
     return 'No due date';

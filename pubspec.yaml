@@ -38,6 +38,7 @@ dependencies:
   flutter_local_notifications: ^17.2.0
   flutter_svg: ^2.0.10+1
   google_sign_in: ^6.2.1
+  http: ^1.2.2
   image_picker: ^1.1.2
   lucide_icons: ^0.257.0
   shared_preferences: ^2.3.2
