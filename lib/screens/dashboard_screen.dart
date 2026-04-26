@@ -3,11 +3,12 @@ import 'dart:math' as math;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import '../widgets/spark_top_bar.dart';
 
 import '../models.dart';
+import '../services/fuel_price_service.dart';
 import '../widgets/demo_brand_logo.dart';
 import '../widgets/expense_list_tile.dart';
+import '../widgets/spark_top_bar.dart';
 
 enum _CategoryPeriod { threeMonths, sixMonths, twelveMonths, allTime }
 
@@ -18,12 +19,14 @@ class DashboardScreen extends StatefulWidget {
     required this.expenses,
     required this.reminders,
     required this.onEditReminder,
+    required this.fuelPriceCountry,
   });
 
   final List<Vehicle> vehicles;
   final List<CarExpense> expenses;
   final List<MaintenanceReminder> reminders;
   final ValueChanged<MaintenanceReminder> onEditReminder;
+  final FuelPriceCountry fuelPriceCountry;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -31,11 +34,26 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   _DashboardFilters _filters = const _DashboardFilters();
-  _CategoryPeriod _categoryPeriod = _CategoryPeriod.sixMonths;
+  final FuelPriceService _fuelPriceService = FuelPriceService();
   int _touchedPieIndex = -1;
-  int _touchedForecastGroupIndex = -1;
-  int _touchedForecastRodIndex = -1;
-  int _touchedHistogramIndex = -1;
+  int _touchedMonthlyTrendIndex = -1;
+  late Future<FuelPriceSnapshot> _fuelPriceFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _fuelPriceFuture = _fuelPriceService.fetchSnapshot(widget.fuelPriceCountry);
+  }
+
+  @override
+  void didUpdateWidget(covariant DashboardScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.fuelPriceCountry != widget.fuelPriceCountry) {
+      _fuelPriceFuture = _fuelPriceService.fetchSnapshot(
+        widget.fuelPriceCountry,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,36 +61,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final filteredExpenses = _buildFilteredExpenses();
     final filteredReminders = _buildFilteredReminders();
-
-    final forecast = _buildForecast(
-      expenses: filteredExpenses,
+    final periodExpenses = _filterExpensesByPeriod(
+      filteredExpenses,
       now: now,
-      historyMonths: 6,
-      forecastMonths: 6,
+      period: _filters.period,
+    );
+    final monthlyTrend = _buildMonthlyTrend(
+      periodExpenses,
+      now: now,
+      period: _filters.period,
+    );
+    final topVehicleSpend = _buildVehicleSpendTotals(
+      expenses: periodExpenses,
+      vehicles: widget.vehicles,
     );
 
     final categoryTotals = _buildCategoryTotals(
-      filteredExpenses,
+      periodExpenses,
       now: now,
-      period: _categoryPeriod,
+      period: _filters.period,
     );
-    final weeklyHistogramBins = _buildWeeklyHistogram(
-      filteredExpenses,
-      now: now,
-      weeks: 12,
-    );
-
-    final thisMonthActual = forecast.history.isEmpty
-        ? 0.0
-        : forecast.history.last.amount;
-    final nextMonthPrediction = forecast.predicted.isEmpty
-        ? 0.0
-        : forecast.predicted.first.amount;
-    final forecastSixMonthTotal = forecast.predicted.fold<double>(
+    final thisMonthActual = filteredExpenses
+        .where(
+          (expense) =>
+              expense.date.year == now.year && expense.date.month == now.month,
+        )
+        .fold<double>(0, (sum, expense) => sum + expense.amount);
+    final openRemindersCount = filteredReminders.length;
+    final periodTotal = periodExpenses.fold<double>(
       0,
-      (sum, item) => sum + item.amount,
+      (sum, expense) => sum + expense.amount,
     );
-
     final recentExpenses = filteredExpenses.take(5).toList();
 
     return Scaffold(
@@ -130,66 +149,72 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         child: _KpiCard(
                           title: 'This month',
                           value: '${thisMonthActual.toStringAsFixed(0)} lei',
-                          subtitle: 'Actual spending',
+                          subtitle: '',
                           icon: LucideIcons.wallet,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: _KpiCard(
-                          title: 'Next month',
-                          value:
-                              '${nextMonthPrediction.toStringAsFixed(0)} lei',
-                          subtitle: 'Predicted by trend',
-                          icon: LucideIcons.trendingUp,
+                          title: 'Open reminders',
+                          value: openRemindersCount.toString(),
+                          subtitle: '',
+                          icon: LucideIcons.wrench,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  _ForecastInsightCard(
-                    slope: forecast.slope,
-                    projectedSixMonthCost: forecastSixMonthTotal,
+                  FutureBuilder<FuelPriceSnapshot>(
+                    future: _fuelPriceFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const _AnalyticsLoadingCard(
+                          title: 'Fuel cost trend',
+                        );
+                      }
+                      if (snapshot.hasError || !snapshot.hasData) {
+                        return const _EmptyAnalyticsCard(
+                          title: 'Fuel cost trend',
+                          message: 'Fuel market data is unavailable right now.',
+                        );
+                      }
+
+                      return _FuelCostTrendCard(
+                        prices: snapshot.data!,
+                        expenses: filteredExpenses,
+                        vehicles: widget.vehicles,
+                        now: now,
+                      );
+                    },
                   ),
                   const SizedBox(height: 12),
                   _CategoryDistributionCard(
                     categoryTotals: categoryTotals,
-                    selectedPeriod: _categoryPeriod,
-                    onPeriodChanged: (period) {
-                      setState(() {
-                        _categoryPeriod = period;
-                        _touchedPieIndex = -1;
-                      });
-                    },
+                    selectedPeriod: _filters.period,
                     touchedIndex: _touchedPieIndex,
                     onTouchedIndexChanged: (index) {
                       setState(() => _touchedPieIndex = index);
                     },
                   ),
                   const SizedBox(height: 12),
-                  _MonthlyForecastCard(
-                    history: forecast.history,
-                    predicted: forecast.predicted,
-                    touchedGroupIndex: _touchedForecastGroupIndex,
-                    touchedRodIndex: _touchedForecastRodIndex,
-                    onTouchedBarChanged: (groupIndex, rodIndex) {
-                      setState(() {
-                        _touchedForecastGroupIndex = groupIndex;
-                        _touchedForecastRodIndex = rodIndex;
-                      });
+                  _MonthlySpendingTrendCard(
+                    points: monthlyTrend,
+                    selectedPeriod: _filters.period,
+                    touchedIndex: _touchedMonthlyTrendIndex,
+                    onTouchedIndexChanged: (index) {
+                      setState(() => _touchedMonthlyTrendIndex = index);
                     },
                   ),
                   const SizedBox(height: 12),
-                  _ExpenseHistogramCard(
-                    bins: weeklyHistogramBins,
-                    touchedIndex: _touchedHistogramIndex,
-                    onTouchedIndexChanged: (index) {
-                      setState(() => _touchedHistogramIndex = index);
-                    },
+                  _TopSpendingVehiclesCard(
+                    items: topVehicleSpend,
+                    selectedPeriod: _filters.period,
+                    totalAmount: periodTotal,
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Upcoming maintenance',
+                    'Upcoming reminders',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
@@ -300,9 +325,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _resetChartTouches() {
     _touchedPieIndex = -1;
-    _touchedForecastGroupIndex = -1;
-    _touchedForecastRodIndex = -1;
-    _touchedHistogramIndex = -1;
+    _touchedMonthlyTrendIndex = -1;
   }
 
   List<Widget> _buildActiveFilterPills() {
@@ -331,6 +354,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
+    if (_filters.period != _DashboardFilters.defaultPeriod) {
+      pills.add(
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: Chip(
+            avatar: const Icon(LucideIcons.calendarRange, size: 16),
+            label: Text(_filters.period.titleLabel),
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+      );
+    }
+
     return pills;
   }
 }
@@ -351,11 +387,13 @@ class _DashboardFiltersScreen extends StatefulWidget {
 
 class _DashboardFiltersScreenState extends State<_DashboardFiltersScreen> {
   late Set<String> _vehicleIds;
+  late _CategoryPeriod _period;
 
   @override
   void initState() {
     super.initState();
     _vehicleIds = Set<String>.from(widget.initialFilters.vehicleIds);
+    _period = widget.initialFilters.period;
   }
 
   @override
@@ -392,6 +430,24 @@ class _DashboardFiltersScreenState extends State<_DashboardFiltersScreen> {
               );
             }).toList(),
           ),
+          const SizedBox(height: 16),
+          Text('Time', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _CategoryPeriod.values.map((period) {
+              return ChoiceChip(
+                label: Text(period.chipLabel),
+                selected: _period == period,
+                onSelected: (_) {
+                  setState(() {
+                    _period = period;
+                  });
+                },
+              );
+            }).toList(),
+          ),
           const SizedBox(height: 24),
           Row(
             children: [
@@ -400,6 +456,7 @@ class _DashboardFiltersScreenState extends State<_DashboardFiltersScreen> {
                   onPressed: () {
                     setState(() {
                       _vehicleIds.clear();
+                      _period = _DashboardFilters.defaultPeriod;
                     });
                   },
                   child: const Text('Reset'),
@@ -412,6 +469,7 @@ class _DashboardFiltersScreenState extends State<_DashboardFiltersScreen> {
                     Navigator.of(context).pop(
                       _DashboardFilters(
                         vehicleIds: Set<String>.from(_vehicleIds),
+                        period: _period,
                       ),
                     );
                   },
@@ -427,24 +485,30 @@ class _DashboardFiltersScreenState extends State<_DashboardFiltersScreen> {
 }
 
 class _DashboardFilters {
-  const _DashboardFilters({this.vehicleIds = const <String>{}});
+  const _DashboardFilters({
+    this.vehicleIds = const <String>{},
+    this.period = defaultPeriod,
+  });
+
+  static const _CategoryPeriod defaultPeriod = _CategoryPeriod.sixMonths;
 
   final Set<String> vehicleIds;
+  final _CategoryPeriod period;
 
-  bool get hasActiveFilters => vehicleIds.isNotEmpty;
+  bool get hasActiveFilters => vehicleIds.isNotEmpty || period != defaultPeriod;
 }
 
 class _KpiCard extends StatelessWidget {
   const _KpiCard({
     required this.title,
     required this.value,
-    required this.subtitle,
+    this.subtitle,
     required this.icon,
   });
 
   final String title;
   final String value;
-  final String subtitle;
+  final String? subtitle;
   final IconData icon;
 
   @override
@@ -468,12 +532,49 @@ class _KpiCard extends StatelessWidget {
                 context,
               ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                subtitle!,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AnalyticsLoadingCard extends StatelessWidget {
+  const _AnalyticsLoadingCard({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            const Row(
+              children: [
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 10),
+                Text('Loading...'),
+              ],
             ),
           ],
         ),
@@ -482,87 +583,198 @@ class _KpiCard extends StatelessWidget {
   }
 }
 
-class _ForecastInsightCard extends StatelessWidget {
-  const _ForecastInsightCard({
-    required this.slope,
-    required this.projectedSixMonthCost,
+class _FuelCostTrendCard extends StatelessWidget {
+  const _FuelCostTrendCard({
+    required this.prices,
+    required this.expenses,
+    required this.vehicles,
+    required this.now,
   });
 
-  final double slope;
-  final double projectedSixMonthCost;
+  final FuelPriceSnapshot prices;
+  final List<CarExpense> expenses;
+  final List<Vehicle> vehicles;
+  final DateTime now;
 
   @override
   Widget build(BuildContext context) {
-    final trend = _trendForSlope(slope);
-    final scheme = Theme.of(context).colorScheme;
+    final insight = _buildFuelCostInsight(
+      prices: prices,
+      expenses: expenses,
+      vehicles: vehicles,
+      now: now,
+    );
+
+    if (!insight.hasFuelVehicles) {
+      return const _EmptyAnalyticsCard(
+        title: 'Fuel cost trend',
+        message: 'No fuel-powered vehicles are in the current scope.',
+      );
+    }
+
+    if (insight.trackedExpenses == 0) {
+      return Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Fuel cost trend',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'No fuel expenses yet for the selected vehicles.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 12),
+              _FuelPriceLine(
+                label: 'Gasoline 95',
+                current: prices.gasolineCurrent,
+                changePercent: prices.gasolineChangePercent,
+                currencyCode: prices.currencyCode,
+              ),
+              const SizedBox(height: 6),
+              _FuelPriceLine(
+                label: 'Diesel',
+                current: prices.dieselCurrent,
+                changePercent: prices.dieselChangePercent,
+                currencyCode: prices.currencyCode,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                prices.isMoldovaOfficialSource
+                    ? 'Source: ANRE Moldova'
+                    : 'Source: ${prices.sourceName}',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final impactColor = insight.priceImpact >= 0
+        ? const Color(0xFFE53935)
+        : const Color(0xFF43A047);
 
     return Card(
       elevation: 0,
-      color: scheme.primaryContainer.withValues(alpha: 0.38),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(
+              'Fuel cost trend',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Based on the last 30 days of fuel expenses.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
             Row(
               children: [
-                Icon(trend.icon, color: trend.color),
-                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    trend.title,
-                    style: Theme.of(context).textTheme.titleMedium,
+                    'Estimated next 30 days: ${insight.projectedCost.toStringAsFixed(0)} ${prices.currencyCode}',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Text(
+                  _formatSignedAmount(insight.priceImpact, prices.currencyCode),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: impactColor,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 2),
+            Text(
+              insight.priceImpact == 0
+                  ? 'No price impact detected.'
+                  : 'Difference vs previous fuel price level.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            _FuelPriceLine(
+              label: 'Gasoline 95',
+              current: prices.gasolineCurrent,
+              changePercent: prices.gasolineChangePercent,
+              currencyCode: prices.currencyCode,
+            ),
+            const SizedBox(height: 6),
+            _FuelPriceLine(
+              label: 'Diesel',
+              current: prices.dieselCurrent,
+              changePercent: prices.dieselChangePercent,
+              currencyCode: prices.currencyCode,
+            ),
             const SizedBox(height: 8),
             Text(
-              'Projected cost for the next 6 months: '
-              '${projectedSixMonthCost.toStringAsFixed(0)} lei',
+              prices.isMoldovaOfficialSource
+                  ? 'Source: ANRE Moldova'
+                  : 'Source: ${prices.sourceName}',
               style: Theme.of(
                 context,
-              ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: scheme.surface.withValues(alpha: 0.75),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: scheme.outlineVariant),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    LucideIcons.info,
-                    size: 16,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Disclaimer: Forecast is an estimate based on linear regression over the last 6 monthly totals.',
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: scheme.onSurfaceVariant,
-                                fontStyle: FontStyle.italic,
-                              ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+              ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _FuelPriceLine extends StatelessWidget {
+  const _FuelPriceLine({
+    required this.label,
+    required this.current,
+    required this.changePercent,
+    required this.currencyCode,
+  });
+
+  final String label;
+  final double current;
+  final double changePercent;
+  final String currencyCode;
+
+  @override
+  Widget build(BuildContext context) {
+    final clampedPercent = changePercent.abs() > 200 ? 0.0 : changePercent;
+    final deltaColor = clampedPercent > 0
+        ? const Color(0xFFE53935)
+        : (clampedPercent < 0
+              ? const Color(0xFF43A047)
+              : Theme.of(context).colorScheme.onSurfaceVariant);
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            '$label: ${current.toStringAsFixed(2)} $currencyCode/L',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+        Text(
+          _signedPercent(clampedPercent),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: deltaColor,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -571,14 +783,12 @@ class _CategoryDistributionCard extends StatelessWidget {
   const _CategoryDistributionCard({
     required this.categoryTotals,
     required this.selectedPeriod,
-    required this.onPeriodChanged,
     required this.touchedIndex,
     required this.onTouchedIndexChanged,
   });
 
   final Map<ExpenseCategory, double> categoryTotals;
   final _CategoryPeriod selectedPeriod;
-  final ValueChanged<_CategoryPeriod> onPeriodChanged;
   final int touchedIndex;
   final ValueChanged<int> onTouchedIndexChanged;
 
@@ -592,7 +802,7 @@ class _CategoryDistributionCard extends StatelessWidget {
 
     if (entries.isEmpty || total <= 0) {
       return _EmptyAnalyticsCard(
-        title: 'Category split (${selectedPeriod.titleLabel})',
+        title: 'Spending by category (${selectedPeriod.titleLabel})',
         message: 'Add expenses to unlock category analytics.',
       );
     }
@@ -612,20 +822,8 @@ class _CategoryDistributionCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Category split (${selectedPeriod.titleLabel})',
+              'Spending by category (${selectedPeriod.titleLabel})',
               style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: _CategoryPeriod.values.map((period) {
-                return ChoiceChip(
-                  label: Text(period.chipLabel),
-                  selected: period == selectedPeriod,
-                  onSelected: (_) => onPeriodChanged(period),
-                );
-              }).toList(),
             ),
             const SizedBox(height: 10),
             SizedBox(
@@ -735,62 +933,37 @@ class _CategoryDistributionCard extends StatelessWidget {
   }
 }
 
-class _MonthlyForecastCard extends StatelessWidget {
-  const _MonthlyForecastCard({
-    required this.history,
-    required this.predicted,
-    required this.touchedGroupIndex,
-    required this.touchedRodIndex,
-    required this.onTouchedBarChanged,
+class _MonthlySpendingTrendCard extends StatelessWidget {
+  const _MonthlySpendingTrendCard({
+    required this.points,
+    required this.selectedPeriod,
+    required this.touchedIndex,
+    required this.onTouchedIndexChanged,
   });
 
-  final List<_MonthAmount> history;
-  final List<_MonthAmount> predicted;
-  final int touchedGroupIndex;
-  final int touchedRodIndex;
-  final void Function(int groupIndex, int rodIndex) onTouchedBarChanged;
+  final List<_MonthAmount> points;
+  final _CategoryPeriod selectedPeriod;
+  final int touchedIndex;
+  final ValueChanged<int> onTouchedIndexChanged;
 
   @override
   Widget build(BuildContext context) {
-    final points = <_ChartMonthPoint>[
-      ...history.map(
-        (item) => _ChartMonthPoint(
-          month: item.month,
-          actual: item.amount,
-          predicted: 0,
-        ),
-      ),
-      ...predicted.map(
-        (item) => _ChartMonthPoint(
-          month: item.month,
-          actual: 0,
-          predicted: item.amount,
-        ),
-      ),
-    ];
-
     final maxValue = points.fold<double>(
       0,
-      (max, point) => math.max(max, math.max(point.actual, point.predicted)),
+      (max, point) => math.max(max, point.amount),
     );
 
     if (points.isEmpty || maxValue <= 0) {
       return _EmptyAnalyticsCard(
-        title: 'Monthly cost forecast',
-        message: 'Add expenses to unlock monthly trend analytics.',
+        title: 'Monthly spending trend',
+        message: 'No spending data is available for this period.',
       );
     }
 
-    final maxY = _niceAxisMax(maxValue);
-    final selectedPoint =
-        touchedGroupIndex >= 0 && touchedGroupIndex < points.length
-        ? points[touchedGroupIndex]
+    final selectedPoint = touchedIndex >= 0 && touchedIndex < points.length
+        ? points[touchedIndex]
         : null;
-    final selectedValue = selectedPoint == null || touchedRodIndex < 0
-        ? null
-        : (touchedRodIndex == 0
-              ? selectedPoint.actual
-              : selectedPoint.predicted);
+    final maxY = _niceAxisMax(maxValue);
 
     return Card(
       elevation: 0,
@@ -801,31 +974,16 @@ class _MonthlyForecastCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Monthly cost forecast (actual vs predicted)',
+              'Monthly spending trend (${selectedPeriod.titleLabel})',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                _LegendItem(
-                  label: 'Actual',
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 12),
-                _LegendItem(
-                  label: 'Predicted',
-                  color: Theme.of(context).colorScheme.tertiary,
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
             SizedBox(
-              height: 270,
-              child: BarChart(
-                BarChartData(
+              height: 240,
+              child: LineChart(
+                LineChartData(
                   minY: 0,
                   maxY: maxY,
-                  alignment: BarChartAlignment.spaceAround,
                   gridData: FlGridData(
                     show: true,
                     drawVerticalLine: false,
@@ -850,206 +1008,14 @@ class _MonthlyForecastCard extends StatelessWidget {
                     leftTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
-                        reservedSize: 46,
+                        reservedSize: 50,
                         interval: _leftAxisInterval(maxY),
                         getTitlesWidget: (value, meta) {
+                          final interval = _leftAxisInterval(maxY);
                           if (value == 0) {
                             return const SizedBox.shrink();
                           }
-                          return SideTitleWidget(
-                            meta: meta,
-                            child: Text(
-                              value.toStringAsFixed(0),
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 36,
-                        getTitlesWidget: (value, meta) {
-                          final index = value.toInt();
-                          if (index < 0 || index >= points.length) {
-                            return const SizedBox.shrink();
-                          }
-                          if (index.isOdd) {
-                            return const SizedBox.shrink();
-                          }
-
-                          final month = points[index].month;
-                          return SideTitleWidget(
-                            meta: meta,
-                            child: Text(
-                              _formatMonthShort(month),
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                  barGroups: points.asMap().entries.map((item) {
-                    final index = item.key;
-                    final point = item.value;
-
-                    return BarChartGroupData(
-                      x: index,
-                      barsSpace: 4,
-                      showingTooltipIndicators:
-                          touchedGroupIndex == index && touchedRodIndex >= 0
-                          ? [touchedRodIndex]
-                          : const [],
-                      barRods: [
-                        BarChartRodData(
-                          toY: point.actual,
-                          width: 8,
-                          borderRadius: BorderRadius.circular(6),
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        BarChartRodData(
-                          toY: point.predicted,
-                          width: 8,
-                          borderRadius: BorderRadius.circular(6),
-                          color: Theme.of(context).colorScheme.tertiary,
-                        ),
-                      ],
-                    );
-                  }).toList(),
-                  barTouchData: BarTouchData(
-                    enabled: true,
-                    touchCallback: (event, response) {
-                      if (!event.isInterestedForInteractions ||
-                          response?.spot == null) {
-                        onTouchedBarChanged(-1, -1);
-                        return;
-                      }
-                      onTouchedBarChanged(
-                        response!.spot!.touchedBarGroupIndex,
-                        response.spot!.touchedRodDataIndex,
-                      );
-                    },
-                    touchTooltipData: BarTouchTooltipData(
-                      getTooltipColor: (group) =>
-                          Theme.of(context).colorScheme.inverseSurface,
-                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                        if (rod.toY <= 0) {
-                          return null;
-                        }
-
-                        final point = points[groupIndex];
-                        final label = rodIndex == 0 ? 'Actual' : 'Predicted';
-                        return BarTooltipItem(
-                          '${_formatMonthLong(point.month)}\n'
-                          '$label: ${rod.toY.toStringAsFixed(0)} lei',
-                          TextStyle(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onInverseSurface,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              selectedPoint == null ||
-                      selectedValue == null ||
-                      selectedValue <= 0
-                  ? 'Tap a bar to inspect monthly actual and predicted values.'
-                  : 'Selected ${_formatMonthLong(selectedPoint.month)}: '
-                        '${selectedValue.toStringAsFixed(0)} lei '
-                        '(${touchedRodIndex == 0 ? 'Actual' : 'Predicted'})',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ExpenseHistogramCard extends StatelessWidget {
-  const _ExpenseHistogramCard({
-    required this.bins,
-    required this.touchedIndex,
-    required this.onTouchedIndexChanged,
-  });
-
-  final List<_HistogramBin> bins;
-  final int touchedIndex;
-  final ValueChanged<int> onTouchedIndexChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final maxCount = bins.fold<int>(0, (max, bin) => math.max(max, bin.count));
-
-    if (bins.isEmpty || maxCount == 0) {
-      return _EmptyAnalyticsCard(
-        title: 'Expense frequency histogram',
-        message: 'No expense activity found for the selected scope.',
-      );
-    }
-
-    final maxY = math.max(4, maxCount + 1).toDouble();
-    final selectedBin = touchedIndex >= 0 && touchedIndex < bins.length
-        ? bins[touchedIndex]
-        : null;
-
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Expense frequency histogram (weekly)',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 230,
-              child: BarChart(
-                BarChartData(
-                  minY: 0,
-                  maxY: maxY,
-                  alignment: BarChartAlignment.spaceAround,
-                  gridData: FlGridData(
-                    show: true,
-                    drawVerticalLine: false,
-                    horizontalInterval: 1,
-                    getDrawingHorizontalLine: (value) {
-                      return FlLine(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.outlineVariant.withValues(alpha: 0.30),
-                        strokeWidth: 1,
-                      );
-                    },
-                  ),
-                  borderData: FlBorderData(show: false),
-                  titlesData: FlTitlesData(
-                    topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 30,
-                        interval: 1,
-                        getTitlesWidget: (value, meta) {
-                          if (value % 1 != 0 || value < 0) {
+                          if (!_isAxisStep(value, interval)) {
                             return const SizedBox.shrink();
                           }
                           return SideTitleWidget(
@@ -1066,18 +1032,21 @@ class _ExpenseHistogramCard extends StatelessWidget {
                       sideTitles: SideTitles(
                         showTitles: true,
                         reservedSize: 34,
+                        interval: 1,
                         getTitlesWidget: (value, meta) {
                           final index = value.toInt();
-                          if (index < 0 ||
-                              index >= bins.length ||
-                              index.isOdd) {
+                          if (!_isWholeStep(value) ||
+                              index < 0 ||
+                              index >= points.length) {
                             return const SizedBox.shrink();
                           }
-                          final bin = bins[index];
+                          if (points.length > 8 && index.isOdd) {
+                            return const SizedBox.shrink();
+                          }
                           return SideTitleWidget(
                             meta: meta,
                             child: Text(
-                              _formatDayMonth(bin.start),
+                              _formatMonthShort(points[index].month),
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
                           );
@@ -1085,71 +1054,196 @@ class _ExpenseHistogramCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  barGroups: bins.asMap().entries.map((item) {
-                    final index = item.key;
-                    final bin = item.value;
-                    return BarChartGroupData(
-                      x: index,
-                      showingTooltipIndicators: touchedIndex == index
-                          ? const [0]
-                          : const [],
-                      barRods: [
-                        BarChartRodData(
-                          toY: bin.count.toDouble(),
-                          width: 10,
-                          borderRadius: BorderRadius.circular(6),
-                          color: Theme.of(context).colorScheme.secondary,
-                        ),
-                      ],
-                    );
-                  }).toList(),
-                  barTouchData: BarTouchData(
-                    enabled: true,
+                  lineTouchData: LineTouchData(
+                    handleBuiltInTouches: true,
                     touchCallback: (event, response) {
                       if (!event.isInterestedForInteractions ||
-                          response?.spot == null) {
+                          response?.lineBarSpots == null ||
+                          response!.lineBarSpots!.isEmpty) {
                         onTouchedIndexChanged(-1);
                         return;
                       }
                       onTouchedIndexChanged(
-                        response!.spot!.touchedBarGroupIndex,
+                        response.lineBarSpots!.first.x.toInt(),
                       );
                     },
-                    touchTooltipData: BarTouchTooltipData(
-                      getTooltipColor: (group) =>
+                    touchTooltipData: LineTouchTooltipData(
+                      getTooltipColor: (touchedSpot) =>
                           Theme.of(context).colorScheme.inverseSurface,
-                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                        final bin = bins[groupIndex];
-                        return BarTooltipItem(
-                          '${_formatDayMonth(bin.start)} - '
-                          '${_formatDayMonth(bin.endExclusive.subtract(const Duration(days: 1)))}\n'
-                          '${bin.count} expense(s)',
-                          TextStyle(
-                            color: Theme.of(
-                              context,
-                            ).colorScheme.onInverseSurface,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        );
+                      getTooltipItems: (spots) {
+                        return spots.map((spot) {
+                          final point = points[spot.x.toInt()];
+                          return LineTooltipItem(
+                            '${_formatMonthLong(point.month)}\n'
+                            '${point.amount.toStringAsFixed(0)} lei',
+                            TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onInverseSurface,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          );
+                        }).toList();
                       },
                     ),
                   ),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: points.asMap().entries.map((entry) {
+                        return FlSpot(entry.key.toDouble(), entry.value.amount);
+                      }).toList(),
+                      isCurved: true,
+                      color: Theme.of(context).colorScheme.primary,
+                      barWidth: 3,
+                      dotData: FlDotData(
+                        show: true,
+                        getDotPainter: (spot, percent, barData, index) {
+                          final selected = index == touchedIndex;
+                          return FlDotCirclePainter(
+                            radius: selected ? 5 : 3.5,
+                            color: Theme.of(context).colorScheme.primary,
+                            strokeWidth: 2,
+                            strokeColor: Theme.of(context).colorScheme.surface,
+                          );
+                        },
+                      ),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.12),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              selectedBin == null
-                  ? 'Tap a column to inspect weekly expense frequency.'
-                  : 'Selected week '
-                        '${_formatDayMonth(selectedBin.start)} - '
-                        '${_formatDayMonth(selectedBin.endExclusive.subtract(const Duration(days: 1)))}: '
-                        '${selectedBin.count} expense(s)',
+              selectedPoint == null
+                  ? 'Tap the line to inspect a month.'
+                  : '${_formatMonthLong(selectedPoint.month)}: '
+                        '${selectedPoint.amount.toStringAsFixed(0)} lei',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _TopSpendingVehiclesCard extends StatelessWidget {
+  const _TopSpendingVehiclesCard({
+    required this.items,
+    required this.selectedPeriod,
+    required this.totalAmount,
+  });
+
+  final List<_VehicleSpendTotal> items;
+  final _CategoryPeriod selectedPeriod;
+  final double totalAmount;
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty || totalAmount <= 0) {
+      return _EmptyAnalyticsCard(
+        title: 'Top spending vehicles',
+        message: 'No vehicle spending data is available for this period.',
+      );
+    }
+
+    final visibleItems = items.take(4).toList();
+    final maxAmount = visibleItems.first.amount;
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Top spending vehicles (${selectedPeriod.titleLabel})',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+            for (var index = 0; index < visibleItems.length; index++) ...[
+              _VehicleSpendRow(
+                item: visibleItems[index],
+                maxAmount: maxAmount,
+                totalAmount: totalAmount,
+              ),
+              if (index < visibleItems.length - 1) const SizedBox(height: 12),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VehicleSpendRow extends StatelessWidget {
+  const _VehicleSpendRow({
+    required this.item,
+    required this.maxAmount,
+    required this.totalAmount,
+  });
+
+  final _VehicleSpendTotal item;
+  final double maxAmount;
+  final double totalAmount;
+
+  @override
+  Widget build(BuildContext context) {
+    final fillRatio = maxAmount <= 0 ? 0.0 : item.amount / maxAmount;
+    final share = totalAmount <= 0 ? 0.0 : item.amount / totalAmount * 100;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            DemoBrandLogo(
+              brand: item.vehicle.brand,
+              demoModeEnabled: true,
+              size: 18,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                item.vehicle.displayName,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+            Text(
+              '${item.amount.toStringAsFixed(0)} lei',
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: fillRatio,
+            minHeight: 8,
+            backgroundColor: Theme.of(
+              context,
+            ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${share.toStringAsFixed(1)}% of spending in this period',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
     );
   }
 }
@@ -1245,29 +1339,6 @@ class _MaintenanceList extends StatelessWidget {
   }
 }
 
-class _LegendItem extends StatelessWidget {
-  const _LegendItem({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 6),
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-      ],
-    );
-  }
-}
-
 class _EmptyAnalyticsCard extends StatelessWidget {
   const _EmptyAnalyticsCard({required this.title, required this.message});
 
@@ -1294,18 +1365,6 @@ class _EmptyAnalyticsCard extends StatelessWidget {
   }
 }
 
-class _ForecastResult {
-  const _ForecastResult({
-    required this.history,
-    required this.predicted,
-    required this.slope,
-  });
-
-  final List<_MonthAmount> history;
-  final List<_MonthAmount> predicted;
-  final double slope;
-}
-
 class _MonthAmount {
   const _MonthAmount({required this.month, required this.amount});
 
@@ -1313,121 +1372,109 @@ class _MonthAmount {
   final double amount;
 }
 
-class _HistogramBin {
-  const _HistogramBin({
-    required this.start,
-    required this.endExclusive,
-    required this.count,
+class _VehicleSpendTotal {
+  const _VehicleSpendTotal({required this.vehicle, required this.amount});
+
+  final Vehicle vehicle;
+  final double amount;
+}
+
+class _FuelCostInsight {
+  const _FuelCostInsight({
+    required this.hasFuelVehicles,
+    required this.trackedExpenses,
+    required this.projectedCost,
+    required this.priceImpact,
   });
 
-  final DateTime start;
-  final DateTime endExclusive;
-  final int count;
+  final bool hasFuelVehicles;
+  final int trackedExpenses;
+  final double projectedCost;
+  final double priceImpact;
 }
 
-class _ChartMonthPoint {
-  const _ChartMonthPoint({
-    required this.month,
-    required this.actual,
-    required this.predicted,
-  });
-
-  final DateTime month;
-  final double actual;
-  final double predicted;
-}
-
-class _TrendSignal {
-  const _TrendSignal({
-    required this.title,
-    required this.icon,
-    required this.color,
-  });
-
-  final String title;
-  final IconData icon;
-  final Color color;
-}
-
-class _LinearRegression {
-  const _LinearRegression({required this.slope, required this.intercept});
-
-  final double slope;
-  final double intercept;
-
-  double predict(int x) {
-    return intercept + slope * x;
-  }
-
-  factory _LinearRegression.fit(List<double> values) {
-    if (values.isEmpty) {
-      return const _LinearRegression(slope: 0, intercept: 0);
-    }
-
-    if (values.length == 1) {
-      return _LinearRegression(slope: 0, intercept: values.first);
-    }
-
-    final n = values.length;
-    final meanX = (n - 1) / 2;
-    final meanY = values.reduce((sum, value) => sum + value) / n;
-
-    var numerator = 0.0;
-    var denominator = 0.0;
-
-    for (var i = 0; i < n; i++) {
-      final dx = i - meanX;
-      numerator += dx * (values[i] - meanY);
-      denominator += dx * dx;
-    }
-
-    final slope = denominator == 0 ? 0.0 : numerator / denominator;
-    final intercept = meanY - slope * meanX;
-
-    return _LinearRegression(slope: slope, intercept: intercept);
-  }
-}
-
-_ForecastResult _buildForecast({
+_FuelCostInsight _buildFuelCostInsight({
+  required FuelPriceSnapshot prices,
   required List<CarExpense> expenses,
+  required List<Vehicle> vehicles,
   required DateTime now,
-  required int historyMonths,
-  required int forecastMonths,
 }) {
-  final thisMonth = DateTime(now.year, now.month);
-
-  final historyMonthsList = List<DateTime>.generate(historyMonths, (index) {
-    final offset = historyMonths - 1 - index;
-    return DateTime(thisMonth.year, thisMonth.month - offset);
-  });
-
-  final totalsByMonth = <DateTime, double>{};
-  for (final expense in expenses) {
-    final monthKey = DateTime(expense.date.year, expense.date.month);
-    totalsByMonth[monthKey] = (totalsByMonth[monthKey] ?? 0) + expense.amount;
+  final vehicleById = {for (final vehicle in vehicles) vehicle.id: vehicle};
+  final fuelVehicles = vehicleById.values.where(_supportsLiquidFuel).toList();
+  if (fuelVehicles.isEmpty) {
+    return const _FuelCostInsight(
+      hasFuelVehicles: false,
+      trackedExpenses: 0,
+      projectedCost: 0,
+      priceImpact: 0,
+    );
   }
 
-  final history = historyMonthsList
-      .map(
-        (month) =>
-            _MonthAmount(month: month, amount: totalsByMonth[month] ?? 0),
-      )
-      .toList();
+  final periodStart = DateTime(
+    now.year,
+    now.month,
+    now.day,
+  ).subtract(const Duration(days: 29));
+  var projectedCost = 0.0;
+  var referenceCost = 0.0;
+  var trackedExpenses = 0;
 
-  final historyValues = history.map((item) => item.amount).toList();
-  final regression = _LinearRegression.fit(historyValues);
+  for (final expense in expenses) {
+    if (expense.category != ExpenseCategory.fuel ||
+        expense.date.isBefore(periodStart)) {
+      continue;
+    }
 
-  final predicted = List<_MonthAmount>.generate(forecastMonths, (index) {
-    final month = DateTime(thisMonth.year, thisMonth.month + index + 1);
-    final rawPrediction = regression.predict(historyValues.length + index);
-    return _MonthAmount(month: month, amount: math.max(0, rawPrediction));
-  });
+    final vehicle = vehicleById[expense.vehicleId];
+    if (vehicle == null || !_supportsLiquidFuel(vehicle)) {
+      continue;
+    }
 
-  return _ForecastResult(
-    history: history,
-    predicted: predicted,
-    slope: regression.slope,
+    final currentPrice = _priceForFuelType(
+      fuelType: vehicle.fuelType,
+      gasolinePrice: prices.gasolineCurrent,
+      dieselPrice: prices.dieselCurrent,
+    );
+    final referencePrice = _priceForFuelType(
+      fuelType: vehicle.fuelType,
+      gasolinePrice: prices.gasolineReference,
+      dieselPrice: prices.dieselReference,
+    );
+    if (currentPrice <= 0 || referencePrice <= 0) {
+      continue;
+    }
+
+    final liters = expense.amount / currentPrice;
+    projectedCost += liters * currentPrice;
+    referenceCost += liters * referencePrice;
+    trackedExpenses += 1;
+  }
+
+  return _FuelCostInsight(
+    hasFuelVehicles: true,
+    trackedExpenses: trackedExpenses,
+    projectedCost: projectedCost,
+    priceImpact: projectedCost - referenceCost,
   );
+}
+
+List<CarExpense> _filterExpensesByPeriod(
+  List<CarExpense> expenses, {
+  required DateTime now,
+  required _CategoryPeriod period,
+}) {
+  final since = switch (period) {
+    _CategoryPeriod.threeMonths => DateTime(now.year, now.month - 2),
+    _CategoryPeriod.sixMonths => DateTime(now.year, now.month - 5),
+    _CategoryPeriod.twelveMonths => DateTime(now.year, now.month - 11),
+    _CategoryPeriod.allTime => null,
+  };
+
+  if (since == null) {
+    return List<CarExpense>.from(expenses);
+  }
+
+  return expenses.where((expense) => !expense.date.isBefore(since)).toList();
 }
 
 Map<ExpenseCategory, double> _buildCategoryTotals(
@@ -1453,39 +1500,130 @@ Map<ExpenseCategory, double> _buildCategoryTotals(
   return totals;
 }
 
-List<_HistogramBin> _buildWeeklyHistogram(
+List<_MonthAmount> _buildMonthlyTrend(
   List<CarExpense> expenses, {
   required DateTime now,
-  required int weeks,
+  required _CategoryPeriod period,
 }) {
-  final currentWeekStart = _startOfWeek(now);
-
-  return List<_HistogramBin>.generate(weeks, (index) {
-    final offset = weeks - 1 - index;
-    final start = DateTime(
-      currentWeekStart.year,
-      currentWeekStart.month,
-      currentWeekStart.day - offset * 7,
-    );
-    final endExclusive = DateTime(start.year, start.month, start.day + 7);
-
-    final count = expenses.where((expense) {
-      return !expense.date.isBefore(start) &&
-          expense.date.isBefore(endExclusive);
-    }).length;
-
-    return _HistogramBin(
-      start: start,
-      endExclusive: endExclusive,
-      count: count,
-    );
+  final monthCount = switch (period) {
+    _CategoryPeriod.threeMonths => 3,
+    _CategoryPeriod.sixMonths => 6,
+    _CategoryPeriod.twelveMonths => 12,
+    _CategoryPeriod.allTime => _monthSpanForAllTime(expenses, now),
+  };
+  final currentMonth = DateTime(now.year, now.month);
+  final months = List<DateTime>.generate(monthCount, (index) {
+    final offset = monthCount - 1 - index;
+    return DateTime(currentMonth.year, currentMonth.month - offset);
   });
+
+  final totalsByMonth = <DateTime, double>{};
+  for (final expense in expenses) {
+    final monthKey = DateTime(expense.date.year, expense.date.month);
+    totalsByMonth[monthKey] = (totalsByMonth[monthKey] ?? 0) + expense.amount;
+  }
+
+  return months
+      .map(
+        (month) =>
+            _MonthAmount(month: month, amount: totalsByMonth[month] ?? 0),
+      )
+      .toList();
 }
 
-DateTime _startOfWeek(DateTime date) {
-  final day = DateTime(date.year, date.month, date.day);
-  final daysFromMonday = day.weekday - DateTime.monday;
-  return DateTime(day.year, day.month, day.day - daysFromMonday);
+List<_VehicleSpendTotal> _buildVehicleSpendTotals({
+  required List<CarExpense> expenses,
+  required List<Vehicle> vehicles,
+}) {
+  final totals = <String, double>{};
+  for (final expense in expenses) {
+    totals[expense.vehicleId] =
+        (totals[expense.vehicleId] ?? 0) + expense.amount;
+  }
+
+  final vehicleById = {for (final vehicle in vehicles) vehicle.id: vehicle};
+  final items = totals.entries
+      .map((entry) {
+        final vehicle = vehicleById[entry.key];
+        if (vehicle == null) {
+          return null;
+        }
+        return _VehicleSpendTotal(vehicle: vehicle, amount: entry.value);
+      })
+      .whereType<_VehicleSpendTotal>()
+      .toList();
+
+  items.sort((a, b) => b.amount.compareTo(a.amount));
+  return items;
+}
+
+int _monthSpanForAllTime(List<CarExpense> expenses, DateTime now) {
+  if (expenses.isEmpty) {
+    return 1;
+  }
+
+  final oldest = expenses
+      .map((expense) => DateTime(expense.date.year, expense.date.month))
+      .reduce((a, b) => a.isBefore(b) ? a : b);
+  final newest = DateTime(now.year, now.month);
+  return (newest.year - oldest.year) * 12 + newest.month - oldest.month + 1;
+}
+
+bool _supportsLiquidFuel(Vehicle vehicle) {
+  switch (vehicle.fuelType) {
+    case VehicleFuelType.diesel:
+    case VehicleFuelType.gasoline:
+    case VehicleFuelType.lpg:
+    case VehicleFuelType.cng:
+    case VehicleFuelType.hybrid:
+    case VehicleFuelType.plugInHybrid:
+      return true;
+    case VehicleFuelType.electric:
+    case VehicleFuelType.hydrogen:
+      return false;
+  }
+}
+
+double _priceForFuelType({
+  required VehicleFuelType fuelType,
+  required double gasolinePrice,
+  required double dieselPrice,
+}) {
+  switch (fuelType) {
+    case VehicleFuelType.diesel:
+      return dieselPrice;
+    case VehicleFuelType.gasoline:
+    case VehicleFuelType.lpg:
+    case VehicleFuelType.cng:
+    case VehicleFuelType.hybrid:
+    case VehicleFuelType.plugInHybrid:
+      return gasolinePrice;
+    case VehicleFuelType.electric:
+    case VehicleFuelType.hydrogen:
+      return 0;
+  }
+}
+
+String _signedPercent(double value) {
+  final absolute = value.abs().toStringAsFixed(1);
+  if (value > 0) {
+    return '+$absolute%';
+  }
+  if (value < 0) {
+    return '-$absolute%';
+  }
+  return '0.0%';
+}
+
+String _formatSignedAmount(double value, String currencyCode) {
+  final absolute = value.abs().toStringAsFixed(0);
+  if (value > 0) {
+    return '+$absolute $currencyCode';
+  }
+  if (value < 0) {
+    return '-$absolute $currencyCode';
+  }
+  return '0 $currencyCode';
 }
 
 double _niceAxisMax(double maxValue) {
@@ -1511,26 +1649,16 @@ double _leftAxisInterval(double maxY) {
   return 500;
 }
 
-_TrendSignal _trendForSlope(double slope) {
-  if (slope > 15) {
-    return const _TrendSignal(
-      title: 'Spending trend is increasing',
-      icon: LucideIcons.trendingUp,
-      color: Color(0xFFEF5350),
-    );
+bool _isWholeStep(double value) {
+  return (value - value.roundToDouble()).abs() < 0.001;
+}
+
+bool _isAxisStep(double value, double interval) {
+  if (interval <= 0) {
+    return false;
   }
-  if (slope < -15) {
-    return const _TrendSignal(
-      title: 'Spending trend is decreasing',
-      icon: LucideIcons.trendingDown,
-      color: Color(0xFF42A5F5),
-    );
-  }
-  return const _TrendSignal(
-    title: 'Spending trend is stable',
-    icon: LucideIcons.moveRight,
-    color: Color(0xFF66BB6A),
-  );
+  final steps = value / interval;
+  return (steps - steps.roundToDouble()).abs() < 0.001;
 }
 
 Color _categoryColor(BuildContext context, ExpenseCategory category) {
@@ -1571,11 +1699,6 @@ String _formatMonthLong(DateTime month) {
     'Dec',
   ];
   return '${names[month.month - 1]} ${month.year}';
-}
-
-String _formatDayMonth(DateTime date) {
-  return '${date.day.toString().padLeft(2, '0')}.'
-      '${date.month.toString().padLeft(2, '0')}';
 }
 
 String _formatDate(DateTime date) {

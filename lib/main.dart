@@ -526,7 +526,10 @@ class _HomeShellState extends State<HomeShell> {
       _fuelPriceCountry = country;
     });
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_fuelPriceCountryPrefKey, fuelPriceCountryKey(country));
+    await prefs.setString(
+      _fuelPriceCountryPrefKey,
+      fuelPriceCountryKey(country),
+    );
   }
 
   Future<void> _loadInitialData({bool forceRefresh = false}) async {
@@ -536,10 +539,13 @@ class _HomeShellState extends State<HomeShell> {
       }
       setState(() {
         _vehicles = List<Vehicle>.from(mockVehicles);
-        _expenses = mockExpenses
-            .map((expense) => expense.copyWith(currency: ExpenseCurrency.mdl))
-            .toList()
-          ..sort((a, b) => b.date.compareTo(a.date));
+        _expenses =
+            mockExpenses
+                .map(
+                  (expense) => expense.copyWith(currency: ExpenseCurrency.mdl),
+                )
+                .toList()
+              ..sort((a, b) => b.date.compareTo(a.date));
         _reminders = List<MaintenanceReminder>.from(mockReminders);
         _usingLocalData = true;
       });
@@ -1028,6 +1034,7 @@ class _HomeShellState extends State<HomeShell> {
         expenses: _expenses,
         reminders: _reminders,
         onEditReminder: _openEditReminderFlow,
+        fuelPriceCountry: _fuelPriceCountry,
       ),
       ExpensesScreen(
         expenses: _expenses,
