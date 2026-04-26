@@ -92,6 +92,7 @@ flutter:
     - volkswagen-svgrepo-com.svg
     - tesla-svgrepo-com.svg
     - porsche-svgrepo-com.svg
+    - app_logo_svg.svg
 
   fonts:
     - family: DMSans

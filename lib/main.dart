@@ -74,7 +74,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  ThemeMode _themeMode = ThemeMode.system;
+  ThemeMode _themeMode = ThemeMode.light;
   MockAuthUser? _currentUser;
   late final CarlogRepository _repository;
 
@@ -289,6 +289,32 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
+  Future<String?> _handleForgotPassword(String email) async {
+    final trimmedEmail = email.trim();
+    if (trimmedEmail.isEmpty || !trimmedEmail.contains('@')) {
+      return 'Enter a valid email first.';
+    }
+
+    if (!widget.firebaseEnabled) {
+      return 'Password reset is available only with Firebase auth.';
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: trimmedEmail);
+      return null;
+    } on FirebaseAuthException catch (error) {
+      if (error.code == 'invalid-email') {
+        return 'Please use a valid email address.';
+      }
+      if (error.code == 'user-not-found') {
+        return 'No account found for this email.';
+      }
+      return error.message ?? 'Could not send reset email.';
+    } catch (_) {
+      return 'Could not send reset email right now.';
+    }
+  }
+
   void _enterGuestMode() {
     setState(() {
       _currentUser = MockAuthUser.guest();
@@ -395,6 +421,7 @@ class _MyAppState extends State<MyApp> {
               onLogin: _handleLogin,
               onSignUp: _handleSignUp,
               onGoogleSignIn: _handleGoogleSignIn,
+              onForgotPassword: _handleForgotPassword,
               onEnterGuest: _enterGuestMode,
               firebaseEnabled: widget.firebaseEnabled,
             )
