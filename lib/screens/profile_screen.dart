@@ -21,6 +21,8 @@ class ProfileScreen extends StatefulWidget {
     required this.usingLocalData,
     required this.demoModeEnabled,
     required this.onDemoModeChanged,
+    required this.showAnomalyDemoButtons,
+    required this.onShowAnomalyDemoButtonsChanged,
     required this.onUpdateProfile,
   });
 
@@ -36,6 +38,8 @@ class ProfileScreen extends StatefulWidget {
   final bool usingLocalData;
   final bool demoModeEnabled;
   final ValueChanged<bool> onDemoModeChanged;
+  final bool showAnomalyDemoButtons;
+  final ValueChanged<bool> onShowAnomalyDemoButtonsChanged;
   final Future<String?> Function(String name, String email) onUpdateProfile;
 
   @override
@@ -182,6 +186,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onChanged: (value) {
                   setState(() => _mockFailuresEnabled = value);
                 },
+              ),
+              _MenuSwitchItem(
+                icon: LucideIcons.alertTriangle,
+                label: 'Show anomaly demo buttons',
+                subtitle: 'Display anomaly detection triggers in Smart input',
+                value: widget.showAnomalyDemoButtons,
+                onChanged: widget.onShowAnomalyDemoButtonsChanged,
               ),
             ],
           ),
@@ -638,10 +649,7 @@ class _CurrencyItem extends StatelessWidget {
 }
 
 class _FuelPriceCountryItem extends StatelessWidget {
-  const _FuelPriceCountryItem({
-    required this.value,
-    required this.onChanged,
-  });
+  const _FuelPriceCountryItem({required this.value, required this.onChanged});
 
   final FuelPriceCountry value;
   final ValueChanged<FuelPriceCountry> onChanged;
@@ -764,7 +772,9 @@ class _ImportFlowScreenState extends State<_ImportFlowScreen> {
       return SizedBox(
         width: double.infinity,
         child: FilledButton(
-          onPressed: _vehiclePrepared ? () => setState(() => _stepIndex = 1) : null,
+          onPressed: _vehiclePrepared
+              ? () => setState(() => _stepIndex = 1)
+              : null,
           child: const Text('Continue'),
         ),
       );
@@ -806,7 +816,9 @@ class _ImportFlowScreenState extends State<_ImportFlowScreen> {
       children: [
         Expanded(
           child: OutlinedButton(
-            onPressed: _isImporting ? null : () => setState(() => _stepIndex = 1),
+            onPressed: _isImporting
+                ? null
+                : () => setState(() => _stepIndex = 1),
             child: const Text('Back'),
           ),
         ),
@@ -973,9 +985,9 @@ class _ImportPrerequisiteStep extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             'Many file formats are accepted.',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 16),
           CheckboxListTile(
@@ -1078,7 +1090,9 @@ class _ImportUploadStep extends StatelessWidget {
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Theme.of(context).dividerColor),
+                          border: Border.all(
+                            color: Theme.of(context).dividerColor,
+                          ),
                         ),
                         child: Row(
                           children: [
@@ -1161,9 +1175,7 @@ class _ImportReviewStep extends StatelessWidget {
               children: [
                 Icon(LucideIcons.checkCircle2, color: scheme.primary),
                 const SizedBox(width: 8),
-                const Expanded(
-                  child: Text('Import flow complete.'),
-                ),
+                const Expanded(child: Text('Import flow complete.')),
               ],
             ),
           ] else ...[

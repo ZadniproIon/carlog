@@ -302,11 +302,6 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                         '${_vehicle.year} - ${_vehicle.engine}',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Fuel: ${vehicleFuelTypeLabel(_vehicle.fuelType)}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
                       if (_vehicle.description.trim().isNotEmpty) ...[
                         const SizedBox(height: 8),
                         Text(
@@ -320,6 +315,15 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
               ),
             ),
             const SizedBox(height: 12),
+            if (widget.demoModeEnabled) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _VehicleAiOverviewCard(
+                  insight: _getVehicleAiInsight(_vehicle),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: _SectionCard(
@@ -529,18 +533,136 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
         return;
       }
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('Could not update mileage. Please try again.')),
+        const SnackBar(
+          content: Text('Could not update mileage. Please try again.'),
+        ),
       );
     }
+  }
+
+  _VehicleAiInsight _getVehicleAiInsight(Vehicle vehicle) {
+    final key = '${vehicle.brand.toLowerCase()} ${vehicle.model.toLowerCase()}';
+
+    if (key.contains('volkswagen') && key.contains('passat')) {
+      return const _VehicleAiInsight(
+        summary:
+            'Volkswagen Passat 2018 is generally a reliable long-distance daily driver when maintenance is kept on schedule. It is comfortable, efficient, and usually predictable to own.',
+        bullets: [
+          'Watch for EGR, DPF, and turbo-related issues on higher-mileage diesel cars.',
+          'DSG servicing and suspension bush wear are worth keeping an eye on.',
+          'Strong as a daily and highway car, but delayed service can get expensive quickly.',
+        ],
+      );
+    }
+
+    if (key.contains('tesla') && key.contains('model 3')) {
+      return const _VehicleAiInsight(
+        summary:
+            'Tesla Model 3 is efficient, quick, and relatively low-maintenance compared to combustion cars. Day-to-day ownership is usually simple if charging and tire care are handled well.',
+        bullets: [
+          'Watch for tire wear, alignment, and suspension wear on rough roads.',
+          'Battery and drivetrain are usually strong, but smaller hardware items still matter.',
+          'A very usable daily car, with costs driven more by tires and charging habits than service visits.',
+        ],
+      );
+    }
+
+    if (key.contains('porsche') && key.contains('cayenne')) {
+      return const _VehicleAiInsight(
+        summary:
+            'Porsche Cayenne is a capable premium SUV with strong comfort and performance, but ownership costs are usually above average. It feels excellent when maintained properly.',
+        bullets: [
+          'Watch for air suspension wear, cooling system issues, and expensive brake or tire replacement costs.',
+          'Hybrid-related checks and regular servicing matter more than on a typical family SUV.',
+          'Very rewarding to own when maintained well, but deferred maintenance tends to stack up fast.',
+        ],
+      );
+    }
+
+    return const _VehicleAiInsight(
+      summary:
+          'This vehicle has a balanced ownership profile when maintained consistently. Preventive service and good records usually make the biggest difference.',
+      bullets: [
+        'Track recurring issues early instead of waiting for them to become patterns.',
+        'Stay on top of service intervals and major consumables.',
+        'Good maintenance history helps both reliability and resale value.',
+      ],
+    );
+  }
+}
+
+class _VehicleAiInsight {
+  const _VehicleAiInsight({required this.summary, required this.bullets});
+
+  final String summary;
+  final List<String> bullets;
+}
+
+class _VehicleAiOverviewCard extends StatelessWidget {
+  const _VehicleAiOverviewCard({required this.insight});
+
+  final _VehicleAiInsight insight;
+
+  @override
+  Widget build(BuildContext context) {
+    const accent = Color(0xFFFB8C00);
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(LucideIcons.sparkles, color: accent),
+                const SizedBox(width: 8),
+                Text(
+                  'AI overview',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              insight.summary,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface,
+                  ),
+            ),
+            const SizedBox(height: 12),
+            for (var i = 0; i < insight.bullets.length; i++) ...[
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: Icon(LucideIcons.sparkles, size: 12, color: accent),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      insight.bullets[i],
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+              if (i < insight.bullets.length - 1) const SizedBox(height: 8),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({
-    required this.title,
-    this.icon,
-    required this.child,
-  });
+  const _SectionCard({required this.title, this.icon, required this.child});
 
   final String title;
   final IconData? icon;
@@ -558,8 +680,7 @@ class _SectionCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                if (icon != null)
-                  Icon(icon!),
+                if (icon != null) Icon(icon!),
                 const SizedBox(width: 8),
                 Text(title, style: Theme.of(context).textTheme.titleMedium),
               ],
@@ -646,10 +767,7 @@ class _VehicleMaintenanceList extends StatelessWidget {
                   onTap: () => onEditReminder(reminder),
                   leading: CircleAvatar(
                     backgroundColor: iconBackground,
-                    child: Icon(
-                      LucideIcons.wrench,
-                      color: iconForeground,
-                    ),
+                    child: Icon(LucideIcons.wrench, color: iconForeground),
                   ),
                   title: Text(
                     reminder.title,
@@ -669,7 +787,10 @@ class _VehicleMaintenanceList extends StatelessWidget {
     );
   }
 
-  String _buildDueInfo(MaintenanceReminder reminder, DistanceUnit distanceUnit) {
+  String _buildDueInfo(
+    MaintenanceReminder reminder,
+    DistanceUnit distanceUnit,
+  ) {
     if (reminder.dueDate != null) {
       final date = reminder.dueDate!;
       return 'Due on ${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';

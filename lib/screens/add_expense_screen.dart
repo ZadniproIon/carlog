@@ -21,12 +21,14 @@ class AddExpenseScreen extends StatefulWidget {
     required this.vehicles,
     required this.initialMode,
     required this.preferredCurrency,
+    required this.showAnomalyDemoButtons,
     this.initialExpense,
   });
 
   final List<Vehicle> vehicles;
   final ExpenseEntryMode initialMode;
   final ExpenseCurrency preferredCurrency;
+  final bool showAnomalyDemoButtons;
   final CarExpense? initialExpense;
 
   @override
@@ -174,10 +176,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     children: [
                       TextFormField(
                         controller: _smartInputController,
-                        maxLines: 6,
+                        minLines: 6,
+                        maxLines: null,
                         decoration: const InputDecoration(
                           hintText:
-                              'Type here, speak with mic, or capture a receipt photo.',
+                              'Type here, speak with mic, capture a receipt photo, or choose one from your phone.',
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
@@ -223,7 +226,17 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   _buildSmartActionButton(
                     tooltip: 'Take photo and extract text',
                     icon: LucideIcons.camera,
-                    onPressed: _isParsing ? null : _runPhotoOcrDemo,
+                    onPressed: _isParsing
+                        ? null
+                        : () => _runPhotoOcr(ImageSource.camera),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildSmartActionButton(
+                    tooltip: 'Choose photo from phone',
+                    icon: LucideIcons.image,
+                    onPressed: _isParsing
+                        ? null
+                        : () => _runPhotoOcr(ImageSource.gallery),
                   ),
                   const SizedBox(width: 8),
                   _buildSmartActionButton(
@@ -237,6 +250,42 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   ),
                 ],
               ),
+              if (widget.showAnomalyDemoButtons) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildAnomalyTriggerButton(
+                      label: 'Passat',
+                      onPressed: () => _showAnomalyDialog(
+                        message:
+                            'Mileage entered for Volkswagen Passat is lower than the previous recorded value.',
+                        exampleInput:
+                            'motorina 320 mdl pentru passat, 154000 km, azi',
+                      ),
+                    ),
+                    _buildAnomalyTriggerButton(
+                      label: 'Tesla',
+                      onPressed: () => _showAnomalyDialog(
+                        message:
+                            'Tesla Model 3 repair bill mentions a turbo, but this vehicle does not use a turbocharger.',
+                        exampleInput:
+                            'service tesla model 3, reparatie turbo, 4200 mdl, 24000 km, azi',
+                      ),
+                    ),
+                    _buildAnomalyTriggerButton(
+                      label: 'Porsche',
+                      onPressed: () => _showAnomalyDialog(
+                        message:
+                            'Fuel amount entered for Porsche Cayenne appears too high for the vehicle tank size when compared against current fuel prices in Moldova.',
+                        exampleInput:
+                            'benzina porsche cayenne 4200 mdl, 22000 km, azi',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -292,6 +341,39 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       ),
       icon: Icon(icon),
     );
+  }
+
+  Widget _buildAnomalyTriggerButton({
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: const Icon(LucideIcons.alertTriangle, size: 16),
+      label: Text(label),
+    );
+  }
+
+  Future<void> _showAnomalyDialog({
+    required String message,
+    required String exampleInput,
+  }) async {
+    _smartInputController.text = exampleInput;
+    _smartInputController.selection = TextSelection.fromPosition(
+      TextPosition(offset: exampleInput.length),
+    );
+
+    final shouldProceed = await showDialog<bool>(
+      context: context,
+      builder: (context) => _AnomalyMessageDialog(message: message),
+    );
+
+    if (shouldProceed == true && mounted) {
+      await _parseAndContinue(
+        _smartInputController.text,
+        sourceLabel: _lastSmartSource ?? 'Smart',
+      );
+    }
   }
 
   Widget _buildManualFormStep() {
@@ -430,8 +512,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     if (!mounted) return;
     if (_smartInputController.text.trim().isNotEmpty) return;
 
-    final fallback =
-        'motorina 320 lei pentru passat, pe la 186000 km';
+    final fallback = 'motorina 320 lei pentru passat, pe la 186000 km';
 
     _smartInputController.text = fallback;
     _smartInputController.selection = TextSelection.fromPosition(
@@ -467,13 +548,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     );
   }
 
-  Future<void> _runPhotoOcrDemo() async {
+  Future<void> _runPhotoOcr(ImageSource source) async {
     setState(() {
       _isParsing = true;
     });
 
     try {
-      final image = await _imagePicker.pickImage(source: ImageSource.camera);
+      final image = await _imagePicker.pickImage(source: source);
       if (!mounted || image == null) {
         return;
       }
@@ -486,10 +567,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         return;
       }
 
-      const fallback =
-          'Factura service Porsche Cayenne, total 4800 MDL, km 146200, '
-          'manopera 2200 mdl, placute frana fata 1400 mdl, discuri fata 900 mdl, '
-          'diagnoza 300 mdl, schimb ulei + filtru, service reparatie';
+      final fallback = _buildPhotoOcrDemoFallback();
 
       final raw = result.rawText.trim().isEmpty
           ? fallback
@@ -508,6 +586,32 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         });
       }
     }
+  }
+
+  String _buildPhotoOcrDemoFallback() {
+    final now = DateTime.now();
+    final formattedDate =
+        '${now.day.toString().padLeft(2, '0')}.'
+        '${now.month.toString().padLeft(2, '0')}.'
+        '${now.year}';
+
+    return '''
+Service invoice
+Vehicle: Porsche Cayenne
+Date: $formattedDate
+Mileage: 22000 km
+
+Items:
+- Front brake pads: 1400 MDL
+- Front brake discs: 900 MDL
+- Engine oil and filter: 1000 MDL
+- Labor: 1200 MDL
+- Diagnostic: 300 MDL
+
+Total: 4800 MDL
+Notes: periodic service and front brake repair
+'''
+        .trim();
   }
 
   Future<void> _parseAndContinue(
@@ -724,6 +828,71 @@ class _SparkVoiceRecordingSheet extends StatefulWidget {
       _SparkVoiceRecordingSheetState();
 }
 
+class _AnomalyMessageDialog extends StatelessWidget {
+  const _AnomalyMessageDialog({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    const accent = Color(0xFFFB8C00);
+
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 2),
+                  child: Icon(
+                    LucideIcons.alertTriangle,
+                    color: accent,
+                    size: 18,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Anomaly detected',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: accent,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(message, style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Close'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Proceed anyway'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SparkVoiceRecordingSheetState extends State<_SparkVoiceRecordingSheet> {
   StreamSubscription<SpeechRecognitionStatus>? _statusSubscription;
   Timer? _ticker;
@@ -811,8 +980,7 @@ class _SparkVoiceRecordingSheetState extends State<_SparkVoiceRecordingSheet> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final canSave =
-        _hasStarted && _status == SpeechRecognitionStatus.idle;
+    final canSave = _hasStarted && _status == SpeechRecognitionStatus.idle;
 
     return SafeArea(
       top: false,
@@ -952,10 +1120,14 @@ class _SheetCircleButton extends StatelessWidget {
         onPressed: enabled ? () => unawaited(onPressed()) : null,
         icon: Icon(icon, size: iconSize),
         style: IconButton.styleFrom(
-          shape: CircleBorder(side: BorderSide(color: Theme.of(context).dividerColor)),
+          shape: CircleBorder(
+            side: BorderSide(color: Theme.of(context).dividerColor),
+          ),
           backgroundColor: scheme.surface,
           foregroundColor: scheme.onSurface,
-          disabledForegroundColor: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+          disabledForegroundColor: scheme.onSurfaceVariant.withValues(
+            alpha: 0.5,
+          ),
         ),
       ),
     );

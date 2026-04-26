@@ -466,12 +466,15 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   static const String _expenseCurrencyPrefKey = 'expense_currency';
   static const String _fuelPriceCountryPrefKey = 'fuel_price_country';
+  static const String _showAnomalyDemoButtonsPrefKey =
+      'show_anomaly_demo_buttons';
   int _selectedIndex = 0;
   late List<Vehicle> _vehicles;
   late List<CarExpense> _expenses;
   late List<MaintenanceReminder> _reminders;
   bool _usingLocalData = true;
   bool _demoModeEnabled = true;
+  bool _showAnomalyDemoButtons = true;
   ExpenseCurrency _expenseCurrency = ExpenseCurrency.mdl;
   FuelPriceCountry _fuelPriceCountry = FuelPriceCountry.moldova;
   CarlogDataSnapshot? _cachedNonDemoSnapshot;
@@ -492,6 +495,9 @@ class _HomeShellState extends State<HomeShell> {
     final prefs = await SharedPreferences.getInstance();
     final storedCurrency = prefs.getString(_expenseCurrencyPrefKey);
     final storedFuelCountry = prefs.getString(_fuelPriceCountryPrefKey);
+    final storedShowAnomalyDemoButtons = prefs.getBool(
+      _showAnomalyDemoButtonsPrefKey,
+    );
     if (!mounted || storedCurrency == null || storedCurrency.trim().isEmpty) {
       if (storedFuelCountry == null || storedFuelCountry.trim().isEmpty) {
         return;
@@ -503,6 +509,9 @@ class _HomeShellState extends State<HomeShell> {
       }
       if (storedFuelCountry != null && storedFuelCountry.trim().isNotEmpty) {
         _fuelPriceCountry = fuelPriceCountryFromKey(storedFuelCountry);
+      }
+      if (storedShowAnomalyDemoButtons != null) {
+        _showAnomalyDemoButtons = storedShowAnomalyDemoButtons;
       }
     });
   }
@@ -530,6 +539,17 @@ class _HomeShellState extends State<HomeShell> {
       _fuelPriceCountryPrefKey,
       fuelPriceCountryKey(country),
     );
+  }
+
+  Future<void> _onShowAnomalyDemoButtonsChanged(bool enabled) async {
+    if (_showAnomalyDemoButtons == enabled) {
+      return;
+    }
+    setState(() {
+      _showAnomalyDemoButtons = enabled;
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_showAnomalyDemoButtonsPrefKey, enabled);
   }
 
   Future<void> _loadInitialData({bool forceRefresh = false}) async {
@@ -845,6 +865,7 @@ class _HomeShellState extends State<HomeShell> {
           vehicles: _vehicles,
           initialMode: ExpenseEntryMode.manual,
           preferredCurrency: _expenseCurrency,
+          showAnomalyDemoButtons: _showAnomalyDemoButtons,
           initialExpense: expense,
         ),
       ),
@@ -1072,6 +1093,8 @@ class _HomeShellState extends State<HomeShell> {
         demoModeEnabled: _demoModeEnabled,
         onDemoModeChanged: _onDemoModeChanged,
         onUpdateProfile: widget.onUpdateProfile,
+        showAnomalyDemoButtons: _showAnomalyDemoButtons,
+        onShowAnomalyDemoButtonsChanged: _onShowAnomalyDemoButtonsChanged,
       ),
     ];
 
@@ -1093,6 +1116,7 @@ class _HomeShellState extends State<HomeShell> {
                 vehicles: _vehicles,
                 initialMode: mode,
                 preferredCurrency: _expenseCurrency,
+                showAnomalyDemoButtons: _showAnomalyDemoButtons,
               ),
             ),
           );
