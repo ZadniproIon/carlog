@@ -47,9 +47,7 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  bool _notificationsEnabled = true;
   bool _maintenanceRemindersEnabled = true;
-  bool _privacyMode = false;
   bool _developerLogsEnabled = false;
   bool _mockFailuresEnabled = false;
 
@@ -101,30 +99,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onChanged: widget.onFuelPriceCountryChanged,
               ),
               _MenuSwitchItem(
-                icon: LucideIcons.bell,
-                label: 'General notifications',
-                subtitle: 'Expense and account alerts',
-                value: _notificationsEnabled,
-                onChanged: (value) {
-                  setState(() => _notificationsEnabled = value);
-                },
-              ),
-              _MenuSwitchItem(
                 icon: LucideIcons.wrench,
                 label: 'Maintenance reminders',
                 subtitle: 'ITP, oil, tires and inspections',
                 value: _maintenanceRemindersEnabled,
                 onChanged: (value) {
                   setState(() => _maintenanceRemindersEnabled = value);
-                },
-              ),
-              _MenuSwitchItem(
-                icon: LucideIcons.shield,
-                label: 'Privacy mode',
-                subtitle: 'Hide sensitive values in screenshots',
-                value: _privacyMode,
-                onChanged: (value) {
-                  setState(() => _privacyMode = value);
                 },
               ),
             ],
@@ -139,6 +119,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 label: 'Import data',
                 subtitle: 'Import from files',
                 onTap: _openImportDataFlow,
+              ),
+              _MenuItem(
+                icon: LucideIcons.download,
+                label: 'Export data',
+                subtitle: 'Export vehicles, expenses and reminders',
+                onTap: _openExportDataFlow,
               ),
             ],
           ),
@@ -332,6 +318,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _openImportDataFlow() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(builder: (context) => const _ImportFlowScreen()),
+    );
+  }
+
+  Future<void> _openExportDataFlow() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (context) => const _ExportFlowScreen()),
     );
   }
 }
@@ -708,6 +700,97 @@ class _ImportFlowScreen extends StatefulWidget {
 
   @override
   State<_ImportFlowScreen> createState() => _ImportFlowScreenState();
+}
+
+class _ExportFlowScreen extends StatelessWidget {
+  const _ExportFlowScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: const SparkTopBar(title: Text('Export data')),
+      body: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Choose what you want to export.',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Create a backup of your vehicles, expenses and reminders in a shareable file.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 20),
+            const _SectionTitle('Included data'),
+            const SizedBox(height: 8),
+            _MenuGroup(
+              children: const [
+                _ExportOptionRow(
+                  icon: LucideIcons.car,
+                  label: 'Vehicles',
+                ),
+                _ExportOptionRow(
+                  icon: LucideIcons.receipt,
+                  label: 'Expenses',
+                ),
+                _ExportOptionRow(
+                  icon: LucideIcons.calendarClock,
+                  label: 'Reminders',
+                ),
+              ],
+            ),
+            const Spacer(),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Export started. Your file will be ready shortly.',
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('Export data'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ExportOptionRow extends StatelessWidget {
+  const _ExportOptionRow({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(label, style: Theme.of(context).textTheme.bodyLarge),
+          ),
+          Icon(
+            LucideIcons.check,
+            size: 18,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ImportFlowScreenState extends State<_ImportFlowScreen> {
