@@ -430,12 +430,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     if (!mounted) return;
     if (_smartInputController.text.trim().isNotEmpty) return;
 
-    final vehicleName = _selectedVehicle?.displayName ?? 'car';
-    final unit = distanceUnitShortLabel(
-      _selectedVehicle?.distanceUnit ?? DistanceUnit.km,
-    );
     final fallback =
-        'Am cheltuit 320 lei pe benzina pentru $vehicleName la 186000 $unit azi';
+        'motorina 320 lei pentru passat, pe la 186000 km';
 
     _smartInputController.text = fallback;
     _smartInputController.selection = TextSelection.fromPosition(
@@ -490,13 +486,10 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         return;
       }
 
-      final unit = distanceUnitShortLabel(
-        _selectedVehicle?.distanceUnit ?? DistanceUnit.km,
-      );
-      final fallback = _selectedVehicle == null
-          ? 'Bon fiscal: total 260 lei, 185500 $unit, alimentare azi'
-          : 'Bon fiscal: total 260 lei, ${_selectedVehicle!.displayName}, '
-                '185500 $unit, alimentare azi';
+      const fallback =
+          'Factura service Porsche Cayenne, total 4800 MDL, km 146200, '
+          'manopera 2200 mdl, placute frana fata 1400 mdl, discuri fata 900 mdl, '
+          'diagnoza 300 mdl, schimb ulei + filtru, service reparatie';
 
       final raw = result.rawText.trim().isEmpty
           ? fallback
