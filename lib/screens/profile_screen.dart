@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../widgets/spark_top_bar.dart';
 
@@ -113,6 +114,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onChanged: (value) {
                   setState(() => _privacyMode = value);
                 },
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const _SectionTitle('Data'),
+          const SizedBox(height: 8),
+          _MenuGroup(
+            children: [
+              _MenuItem(
+                icon: LucideIcons.upload,
+                label: 'Import data',
+                subtitle: 'Import from files',
+                onTap: _openImportDataFlow,
               ),
             ],
           ),
@@ -294,6 +308,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
     nameController.dispose();
     emailController.dispose();
+  }
+
+  Future<void> _openImportDataFlow() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (context) => const _ImportFlowScreen()),
+    );
   }
 }
 
@@ -607,4 +627,531 @@ class _CurrencyItem extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ImportFlowScreen extends StatefulWidget {
+  const _ImportFlowScreen();
+
+  @override
+  State<_ImportFlowScreen> createState() => _ImportFlowScreenState();
+}
+
+class _ImportFlowScreenState extends State<_ImportFlowScreen> {
+  int _stepIndex = 0;
+  bool _vehiclePrepared = false;
+  bool _isImporting = false;
+  bool _importComplete = false;
+  final List<_ImportFile> _selectedFiles = <_ImportFile>[];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: const SparkTopBar(title: Text('Import data')),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+          child: Column(
+            children: [
+              _ImportStepHeader(stepIndex: _stepIndex),
+              const SizedBox(height: 14),
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  child: _buildStepContent(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              _buildBottomActions(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStepContent() {
+    if (_stepIndex == 0) {
+      return _ImportPrerequisiteStep(
+        isChecked: _vehiclePrepared,
+        onChanged: (value) => setState(() => _vehiclePrepared = value),
+      );
+    }
+
+    if (_stepIndex == 1) {
+      return _ImportUploadStep(
+        files: _selectedFiles,
+        onPickFiles: _pickFiles,
+        onClearFiles: _clearFiles,
+        onRemoveFileAt: _removeFileAt,
+      );
+    }
+
+    return _ImportReviewStep(
+      files: _selectedFiles,
+      isImporting: _isImporting,
+      isComplete: _importComplete,
+    );
+  }
+
+  Widget _buildBottomActions() {
+    if (_stepIndex == 0) {
+      return SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: _vehiclePrepared ? () => setState(() => _stepIndex = 1) : null,
+          child: const Text('Continue'),
+        ),
+      );
+    }
+
+    if (_stepIndex == 1) {
+      return Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: () => setState(() => _stepIndex = 0),
+              child: const Text('Back'),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: FilledButton(
+              onPressed: _selectedFiles.isEmpty
+                  ? null
+                  : () => setState(() => _stepIndex = 2),
+              child: const Text('Review'),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (_importComplete) {
+      return SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Done'),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton(
+            onPressed: _isImporting ? null : () => setState(() => _stepIndex = 1),
+            child: const Text('Back'),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: _isImporting ? null : _runImport,
+            icon: _isImporting
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(LucideIcons.play),
+            label: Text(_isImporting ? 'Running...' : 'Start import'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickFiles() async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      type: FileType.custom,
+      allowedExtensions: const [
+        'csv',
+        'xlsx',
+        'xls',
+        'pdf',
+        'jpg',
+        'jpeg',
+        'png',
+        'heic',
+        'txt',
+        'zip',
+      ],
+    );
+
+    if (!mounted || result == null || result.files.isEmpty) {
+      return;
+    }
+
+    final existingKeys = _selectedFiles.map((file) => file.key).toSet();
+    final filesToAdd = <_ImportFile>[];
+    for (final platformFile in result.files) {
+      final file = _ImportFile.fromPlatformFile(platformFile);
+      if (existingKeys.add(file.key)) {
+        filesToAdd.add(file);
+      }
+    }
+
+    if (filesToAdd.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      _selectedFiles.addAll(filesToAdd);
+      _importComplete = false;
+    });
+  }
+
+  void _clearFiles() {
+    setState(() {
+      _selectedFiles.clear();
+      _importComplete = false;
+    });
+  }
+
+  void _removeFileAt(int index) {
+    if (index < 0 || index >= _selectedFiles.length) {
+      return;
+    }
+
+    setState(() {
+      _selectedFiles.removeAt(index);
+      _importComplete = false;
+    });
+  }
+
+  Future<void> _runImport() async {
+    setState(() {
+      _isImporting = true;
+      _importComplete = false;
+    });
+
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    if (!mounted) return;
+
+    setState(() {
+      _isImporting = false;
+      _importComplete = true;
+    });
+  }
+}
+
+class _ImportStepHeader extends StatelessWidget {
+  const _ImportStepHeader({required this.stepIndex});
+
+  final int stepIndex;
+
+  @override
+  Widget build(BuildContext context) {
+    final active = Theme.of(context).colorScheme.primary;
+    final inactive = Theme.of(context).dividerColor;
+
+    return Row(
+      children: List<Widget>.generate(3, (index) {
+        return Expanded(
+          child: Container(
+            height: 4,
+            margin: EdgeInsets.only(right: index == 2 ? 0 : 8),
+            decoration: BoxDecoration(
+              color: index <= stepIndex ? active : inactive,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _ImportPrerequisiteStep extends StatelessWidget {
+  const _ImportPrerequisiteStep({
+    required this.isChecked,
+    required this.onChanged,
+  });
+
+  final bool isChecked;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      key: const ValueKey<String>('import_step_0'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(LucideIcons.car, color: scheme.primary),
+              const SizedBox(width: 10),
+              Text(
+                'Before you proceed',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'First create the vehicle in the app. After that, upload the '
+            'necessary files for this vehicle.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Many file formats are accepted.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 16),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            value: isChecked,
+            onChanged: (value) => onChanged(value ?? false),
+            title: const Text('I already created the vehicle in CarLog'),
+            controlAffinity: ListTileControlAffinity.leading,
+          ),
+          const Spacer(),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImportUploadStep extends StatelessWidget {
+  const _ImportUploadStep({
+    required this.files,
+    required this.onPickFiles,
+    required this.onClearFiles,
+    required this.onRemoveFileAt,
+  });
+
+  final List<_ImportFile> files;
+  final Future<void> Function() onPickFiles;
+  final VoidCallback onClearFiles;
+  final ValueChanged<int> onRemoveFileAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      key: const ValueKey<String>('import_step_1'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Upload files', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Text(
+            'Accepted formats: CSV, XLSX, XLS, PDF, JPG, JPEG, PNG, HEIC, TXT, ZIP and more.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Theme.of(context).dividerColor),
+            ),
+            child: Column(
+              children: [
+                Icon(LucideIcons.fileUp, color: scheme.primary),
+                const SizedBox(height: 8),
+                const Text('Choose one or more files to import'),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () async {
+                        await onPickFiles();
+                      },
+                      icon: const Icon(LucideIcons.plus, size: 16),
+                      label: const Text('Choose files'),
+                    ),
+                    OutlinedButton(
+                      onPressed: files.isEmpty ? null : onClearFiles,
+                      child: const Text('Clear all'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Expanded(
+            child: files.isEmpty
+                ? Center(
+                    child: Text(
+                      'No files selected yet.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  )
+                : ListView.separated(
+                    itemCount: files.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final file = files[index];
+                      return Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Theme.of(context).dividerColor),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(LucideIcons.fileText, size: 18),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                file.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${file.format} - ${file.sizeLabel}',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            const SizedBox(width: 4),
+                            IconButton(
+                              tooltip: 'Remove file',
+                              onPressed: () => onRemoveFileAt(index),
+                              icon: const Icon(LucideIcons.trash2, size: 16),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ImportReviewStep extends StatelessWidget {
+  const _ImportReviewStep({
+    required this.files,
+    required this.isImporting,
+    required this.isComplete,
+  });
+
+  final List<_ImportFile> files;
+  final bool isImporting;
+  final bool isComplete;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+
+    return Container(
+      key: const ValueKey<String>('import_step_2'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Review import', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 10),
+          Text(
+            'Vehicle prerequisite completed. Files ready: ${files.length}.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'The selected files are ready for import.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 16),
+          if (isImporting) ...[
+            const LinearProgressIndicator(),
+            const SizedBox(height: 10),
+            const Text('Processing files...'),
+          ] else if (isComplete) ...[
+            Row(
+              children: [
+                Icon(LucideIcons.checkCircle2, color: scheme.primary),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text('Import flow complete.'),
+                ),
+              ],
+            ),
+          ] else ...[
+            Text(
+              'Press "Start import" to continue.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ImportFile {
+  const _ImportFile({
+    required this.name,
+    required this.format,
+    required this.sizeLabel,
+    required this.rawSize,
+  });
+
+  factory _ImportFile.fromPlatformFile(PlatformFile file) {
+    final extension = file.extension?.trim().toUpperCase();
+    return _ImportFile(
+      name: file.name,
+      format: extension == null || extension.isEmpty ? 'FILE' : extension,
+      sizeLabel: _formatFileSize(file.size),
+      rawSize: file.size,
+    );
+  }
+
+  final String name;
+  final String format;
+  final String sizeLabel;
+  final int rawSize;
+
+  String get key => '$name:$rawSize';
+}
+
+String _formatFileSize(int bytes) {
+  if (bytes <= 0) {
+    return '0 B';
+  }
+
+  const units = ['B', 'KB', 'MB', 'GB'];
+  var value = bytes.toDouble();
+  var index = 0;
+
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024;
+    index++;
+  }
+
+  final decimals = value >= 100 ? 0 : (value >= 10 ? 1 : 2);
+  return '${value.toStringAsFixed(decimals)} ${units[index]}';
 }
