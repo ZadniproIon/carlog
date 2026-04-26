@@ -3,6 +3,150 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 enum ExpenseCategory { fuel, service, insurance, parts, other }
 
+enum VehicleFuelType {
+  gasoline,
+  diesel,
+  lpg,
+  cng,
+  hybrid,
+  plugInHybrid,
+  electric,
+  hydrogen,
+}
+
+VehicleFuelType vehicleFuelTypeFromKey(String value, {String? engineHint}) {
+  final normalized = value.toLowerCase().trim();
+  switch (normalized) {
+    case 'gasoline':
+    case 'petrol':
+    case 'benzina':
+    case 'benzin':
+      return VehicleFuelType.gasoline;
+    case 'diesel':
+    case 'motorina':
+      return VehicleFuelType.diesel;
+    case 'lpg':
+    case 'gpl':
+    case 'autogas':
+      return VehicleFuelType.lpg;
+    case 'cng':
+      return VehicleFuelType.cng;
+    case 'hybrid':
+    case 'hev':
+      return VehicleFuelType.hybrid;
+    case 'plug-in hybrid':
+    case 'plug in hybrid':
+    case 'plugin hybrid':
+    case 'plugin-hybrid':
+    case 'plug_in_hybrid':
+    case 'pluginhybrid':
+    case 'phev':
+      return VehicleFuelType.plugInHybrid;
+    case 'electric':
+    case 'ev':
+    case 'bev':
+      return VehicleFuelType.electric;
+    case 'hydrogen':
+    case 'fcev':
+      return VehicleFuelType.hydrogen;
+    case 'other':
+    default:
+      return _inferFuelTypeFromEngine(engineHint ?? '');
+  }
+}
+
+VehicleFuelType _inferFuelTypeFromEngine(String engine) {
+  final normalized = engine.toLowerCase().trim();
+  if (normalized.isEmpty) {
+    return VehicleFuelType.gasoline;
+  }
+  if (normalized.contains('plug-in') ||
+      normalized.contains('plug in') ||
+      normalized.contains('phev')) {
+    return VehicleFuelType.plugInHybrid;
+  }
+  if (normalized.contains('hybrid')) {
+    return VehicleFuelType.hybrid;
+  }
+  if (normalized.contains('electric') ||
+      normalized.contains('ev') ||
+      normalized.contains('bev') ||
+      normalized.contains('long range') ||
+      normalized.contains('standard range') ||
+      normalized.contains('performance')) {
+    return VehicleFuelType.electric;
+  }
+  if (normalized.contains('diesel') ||
+      normalized.contains('tdi') ||
+      normalized.contains('dci') ||
+      normalized.contains('hdi') ||
+      normalized.contains('crdi')) {
+    return VehicleFuelType.diesel;
+  }
+  if (normalized.contains('gpl') || normalized.contains('lpg')) {
+    return VehicleFuelType.lpg;
+  }
+  if (normalized.contains('cng')) {
+    return VehicleFuelType.cng;
+  }
+  if (normalized.contains('hydrogen') || normalized.contains('fcev')) {
+    return VehicleFuelType.hydrogen;
+  }
+  return VehicleFuelType.gasoline;
+}
+
+String vehicleFuelTypeLabel(VehicleFuelType fuelType) {
+  switch (fuelType) {
+    case VehicleFuelType.gasoline:
+      return 'Gasoline';
+    case VehicleFuelType.diesel:
+      return 'Diesel';
+    case VehicleFuelType.lpg:
+      return 'LPG/GPL';
+    case VehicleFuelType.cng:
+      return 'CNG';
+    case VehicleFuelType.hybrid:
+      return 'Hybrid';
+    case VehicleFuelType.plugInHybrid:
+      return 'Plug-in hybrid';
+    case VehicleFuelType.electric:
+      return 'Electric';
+    case VehicleFuelType.hydrogen:
+      return 'Hydrogen';
+  }
+}
+
+enum DistanceUnit { km, mi }
+
+DistanceUnit distanceUnitFromKey(String value) {
+  switch (value.toLowerCase().trim()) {
+    case 'mi':
+    case 'mile':
+    case 'miles':
+      return DistanceUnit.mi;
+    default:
+      return DistanceUnit.km;
+  }
+}
+
+String distanceUnitShortLabel(DistanceUnit unit) {
+  switch (unit) {
+    case DistanceUnit.km:
+      return 'km';
+    case DistanceUnit.mi:
+      return 'mi';
+  }
+}
+
+String distanceUnitLabel(DistanceUnit unit) {
+  switch (unit) {
+    case DistanceUnit.km:
+      return 'Kilometers (km)';
+    case DistanceUnit.mi:
+      return 'Miles (mi)';
+  }
+}
+
 ExpenseCategory expenseCategoryFromKey(String value) {
   switch (value.toLowerCase().trim()) {
     case 'fuel':
@@ -57,6 +201,9 @@ class Vehicle {
     required this.engine,
     required this.vin,
     required this.mileage,
+    this.description = '',
+    this.fuelType = VehicleFuelType.gasoline,
+    this.distanceUnit = DistanceUnit.km,
   });
 
   final String id;
@@ -66,6 +213,9 @@ class Vehicle {
   final String engine;
   final String vin;
   final int mileage;
+  final String description;
+  final VehicleFuelType fuelType;
+  final DistanceUnit distanceUnit;
 
   String get displayName => '$brand $model';
 
@@ -77,6 +227,9 @@ class Vehicle {
     String? engine,
     String? vin,
     int? mileage,
+    String? description,
+    VehicleFuelType? fuelType,
+    DistanceUnit? distanceUnit,
   }) {
     return Vehicle(
       id: id ?? this.id,
@@ -86,6 +239,9 @@ class Vehicle {
       engine: engine ?? this.engine,
       vin: vin ?? this.vin,
       mileage: mileage ?? this.mileage,
+      description: description ?? this.description,
+      fuelType: fuelType ?? this.fuelType,
+      distanceUnit: distanceUnit ?? this.distanceUnit,
     );
   }
 
@@ -98,6 +254,9 @@ class Vehicle {
       'engine': engine,
       'vin': vin,
       'mileage': mileage,
+      'description': description,
+      'fuelType': fuelType.name,
+      'distanceUnit': distanceUnit.name,
     };
   }
 
@@ -112,6 +271,14 @@ class Vehicle {
       engine: (map['engine'] as String?)?.trim() ?? 'Unknown engine',
       vin: (map['vin'] as String?)?.trim() ?? 'N/A',
       mileage: _intFrom(map['mileage']),
+      description: (map['description'] as String?)?.trim() ?? '',
+      fuelType: vehicleFuelTypeFromKey(
+        (map['fuelType'] ?? map['fuel'] ?? 'other').toString(),
+        engineHint: (map['engine'] as String?)?.trim(),
+      ),
+      distanceUnit: distanceUnitFromKey(
+        (map['distanceUnit'] ?? map['mileageUnit'] ?? 'km').toString(),
+      ),
     );
   }
 }

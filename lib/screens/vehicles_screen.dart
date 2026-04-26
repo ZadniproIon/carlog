@@ -105,7 +105,7 @@ class VehiclesScreen extends StatelessWidget {
                               ),
                               const Spacer(),
                               Text(
-                                '${vehicle.mileage} km',
+                                '${vehicle.mileage} ${distanceUnitShortLabel(vehicle.distanceUnit)}',
                                 style: Theme.of(context).textTheme.bodyMedium,
                               ),
                             ],
@@ -116,12 +116,16 @@ class VehiclesScreen extends StatelessWidget {
                             runSpacing: 4,
                             children: [
                               _InfoChip(
-                                label: 'Year ${vehicle.year}',
+                                label: '${vehicle.year}',
                                 icon: LucideIcons.calendar,
                               ),
                               _InfoChip(
                                 label: vehicle.engine,
                                 icon: LucideIcons.gauge,
+                              ),
+                              _InfoChip(
+                                label: vehicleFuelTypeLabel(vehicle.fuelType),
+                                icon: LucideIcons.droplets,
                               ),
                             ],
                           ),
@@ -298,6 +302,18 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                         '${_vehicle.year} - ${_vehicle.engine}',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Fuel: ${vehicleFuelTypeLabel(_vehicle.fuelType)}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      if (_vehicle.description.trim().isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          _vehicle.description.trim(),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -312,10 +328,19 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                 child: Column(
                   children: [
                     _SpecRow(label: 'Year', value: '${_vehicle.year}'),
-                    _SpecRow(label: 'Engine', value: _vehicle.engine),
+                    _SpecRow(label: 'Engine name', value: _vehicle.engine),
+                    _SpecRow(
+                      label: 'Fuel type',
+                      value: vehicleFuelTypeLabel(_vehicle.fuelType),
+                    ),
                     _SpecRow(
                       label: 'Current mileage',
-                      value: '${_vehicle.mileage} km',
+                      value:
+                          '${_vehicle.mileage} ${distanceUnitShortLabel(_vehicle.distanceUnit)}',
+                    ),
+                    _SpecRow(
+                      label: 'Mileage unit',
+                      value: distanceUnitLabel(_vehicle.distanceUnit),
                     ),
                     _SpecRow(label: 'VIN', value: _vehicle.vin),
                   ],
@@ -349,6 +374,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: _VehicleMaintenanceList(
                   reminders: vehicleReminders,
+                  distanceUnit: _vehicle.distanceUnit,
                   onEditReminder: widget.onEditReminder,
                 ),
               ),
@@ -437,7 +463,8 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                 initialValue: _vehicle.mileage.toString(),
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  labelText: 'Mileage (km)',
+                  labelText:
+                      'Mileage (${distanceUnitShortLabel(_vehicle.distanceUnit)})',
                   errorText: errorText,
                 ),
                 onChanged: (value) {
@@ -585,10 +612,12 @@ class _SpecRow extends StatelessWidget {
 class _VehicleMaintenanceList extends StatelessWidget {
   const _VehicleMaintenanceList({
     required this.reminders,
+    required this.distanceUnit,
     required this.onEditReminder,
   });
 
   final List<MaintenanceReminder> reminders;
+  final DistanceUnit distanceUnit;
   final ValueChanged<MaintenanceReminder> onEditReminder;
 
   @override
@@ -607,7 +636,7 @@ class _VehicleMaintenanceList extends StatelessWidget {
           Builder(
             builder: (context) {
               final reminder = reminders[i];
-              final dueInfo = _buildDueInfo(reminder);
+              final dueInfo = _buildDueInfo(reminder, distanceUnit);
               return Card(
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -640,13 +669,13 @@ class _VehicleMaintenanceList extends StatelessWidget {
     );
   }
 
-  String _buildDueInfo(MaintenanceReminder reminder) {
+  String _buildDueInfo(MaintenanceReminder reminder, DistanceUnit distanceUnit) {
     if (reminder.dueDate != null) {
       final date = reminder.dueDate!;
       return 'Due on ${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
     }
     if (reminder.dueMileage != null) {
-      return 'Due at ${reminder.dueMileage} km';
+      return 'Due at ${reminder.dueMileage} ${distanceUnitShortLabel(distanceUnit)}';
     }
     return 'No due information';
   }

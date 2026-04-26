@@ -80,13 +80,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onChanged: widget.onThemeModeChanged,
               ),
               _MenuSwitchItem(
-                icon: LucideIcons.flaskConical,
-                label: 'Demo mode',
-                subtitle: 'Use mock dataset instead of cloud data',
-                value: widget.demoModeEnabled,
-                onChanged: widget.onDemoModeChanged,
-              ),
-              _MenuSwitchItem(
                 icon: LucideIcons.bell,
                 label: 'General notifications',
                 subtitle: 'Expense and account alerts',
@@ -171,8 +164,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final sync = widget.user.isCloudUser && !widget.usingLocalData
         ? 'Firebase'
         : 'Local';
-    final mode = widget.demoModeEnabled ? 'Demo data' : 'Live data';
-    return '${widget.user.email}  |  $sync  |  $mode';
+    return '${widget.user.email}  |  $sync';
   }
 
   Future<void> _confirmLogout() async {

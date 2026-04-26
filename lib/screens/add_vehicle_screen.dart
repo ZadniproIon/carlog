@@ -19,8 +19,11 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   final _modelController = TextEditingController();
   final _yearController = TextEditingController();
   final _engineController = TextEditingController();
+  final _descriptionController = TextEditingController();
   final _vinController = TextEditingController();
   final _mileageController = TextEditingController();
+  VehicleFuelType _fuelType = VehicleFuelType.gasoline;
+  DistanceUnit _distanceUnit = DistanceUnit.km;
 
   @override
   void dispose() {
@@ -28,6 +31,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     _modelController.dispose();
     _yearController.dispose();
     _engineController.dispose();
+    _descriptionController.dispose();
     _vinController.dispose();
     _mileageController.dispose();
     super.dispose();
@@ -43,8 +47,11 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
       _modelController.text = vehicle.model;
       _yearController.text = vehicle.year.toString();
       _engineController.text = vehicle.engine;
+      _descriptionController.text = vehicle.description;
       _vinController.text = vehicle.vin;
       _mileageController.text = vehicle.mileage.toString();
+      _fuelType = vehicle.fuelType;
+      _distanceUnit = vehicle.distanceUnit;
     }
   }
 
@@ -105,9 +112,52 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
               TextFormField(
                 controller: _engineController,
                 decoration: const InputDecoration(
-                  labelText: 'Engine',
+                  labelText: 'Engine name',
                   hintText: 'e.g. 1.5 dCi, Long Range',
                 ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _descriptionController,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Description (optional)',
+                  hintText: 'e.g. Oil changed 2,000 km ago. Winter tires new.',
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<VehicleFuelType>(
+                initialValue: _fuelType,
+                decoration: const InputDecoration(labelText: 'Fuel type'),
+                items: VehicleFuelType.values
+                    .map(
+                      (type) => DropdownMenuItem<VehicleFuelType>(
+                        value: type,
+                        child: Text(vehicleFuelTypeLabel(type)),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _fuelType = value);
+                },
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<DistanceUnit>(
+                initialValue: _distanceUnit,
+                decoration: const InputDecoration(labelText: 'Mileage unit'),
+                items: DistanceUnit.values
+                    .map(
+                      (unit) => DropdownMenuItem<DistanceUnit>(
+                        value: unit,
+                        child: Text(distanceUnitLabel(unit)),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _distanceUnit = value);
+                },
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -118,8 +168,9 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
               TextFormField(
                 controller: _mileageController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Current mileage (km)',
+                decoration: InputDecoration(
+                  labelText:
+                      'Current mileage (${distanceUnitShortLabel(_distanceUnit)})',
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
@@ -164,6 +215,9 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
       engine: _engineController.text.trim().isEmpty
           ? 'Unknown engine'
           : _engineController.text.trim(),
+      description: _descriptionController.text.trim(),
+      fuelType: _fuelType,
+      distanceUnit: _distanceUnit,
       vin: _vinController.text.trim().isEmpty
           ? 'N/A'
           : _vinController.text.trim(),

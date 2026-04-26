@@ -254,6 +254,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 
   Widget _buildManualFormStep() {
+    final selectedUnit = _selectedVehicle?.distanceUnit ?? DistanceUnit.km;
     return Form(
       key: _formKey,
       child: ListView(
@@ -324,9 +325,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           TextFormField(
             controller: _mileageController,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Mileage (km, optional)',
-              helperText: 'If empty, the current vehicle mileage is used.',
+            decoration: InputDecoration(
+              labelText:
+                  'Mileage (${distanceUnitShortLabel(selectedUnit)}, optional)',
+              helperText:
+                  'If empty, the current vehicle mileage is used in ${distanceUnitShortLabel(selectedUnit)}.',
             ),
             validator: (value) {
               if (value == null || value.isEmpty) {
@@ -379,8 +382,11 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     if (_smartInputController.text.trim().isNotEmpty) return;
 
     final vehicleName = _selectedVehicle?.displayName ?? 'car';
+    final unit = distanceUnitShortLabel(
+      _selectedVehicle?.distanceUnit ?? DistanceUnit.km,
+    );
     final fallback =
-        'Am cheltuit 320 lei pe benzina pentru $vehicleName la 186000 km azi';
+        'Am cheltuit 320 lei pe benzina pentru $vehicleName la 186000 $unit azi';
 
     _smartInputController.text = fallback;
     _smartInputController.selection = TextSelection.fromPosition(
@@ -517,10 +523,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         return;
       }
 
+      final unit = distanceUnitShortLabel(
+        _selectedVehicle?.distanceUnit ?? DistanceUnit.km,
+      );
       final fallback = _selectedVehicle == null
-          ? 'Bon fiscal: total 260 lei, 185500 km, alimentare azi'
+          ? 'Bon fiscal: total 260 lei, 185500 $unit, alimentare azi'
           : 'Bon fiscal: total 260 lei, ${_selectedVehicle!.displayName}, '
-                '185500 km, alimentare azi';
+                '185500 $unit, alimentare azi';
 
       final raw = result.rawText.trim().isEmpty
           ? fallback

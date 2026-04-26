@@ -33,6 +33,9 @@ class ExpenseListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final palette = _categoryPalette(expense.category, scheme);
+    final mileageUnit = vehicle == null
+        ? DistanceUnit.km
+        : vehicle!.distanceUnit;
 
     final tile = ListTile(
       onTap: onTap ?? () => _showExpenseDetails(context),
@@ -61,7 +64,7 @@ class ExpenseListTile extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '${_formatDate(expense.date)} - ${expense.mileage} km',
+            '${_formatDate(expense.date)} - ${expense.mileage} ${distanceUnitShortLabel(mileageUnit)}',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
@@ -91,6 +94,9 @@ class ExpenseListTile extends StatelessWidget {
   void _showExpenseDetails(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final palette = _categoryPalette(expense.category, scheme);
+    final mileageUnit = vehicle == null
+        ? DistanceUnit.km
+        : vehicle!.distanceUnit;
 
     showModalBottomSheet<void>(
       context: context,
@@ -136,7 +142,11 @@ class ExpenseListTile extends StatelessWidget {
                   value: vehicle?.displayName ?? 'Unknown vehicle',
                 ),
                 _DetailRow(label: 'Date', value: _formatDateFull(expense.date)),
-                _DetailRow(label: 'Mileage', value: '${expense.mileage} km'),
+                _DetailRow(
+                  label: 'Mileage',
+                  value:
+                      '${expense.mileage} ${distanceUnitShortLabel(mileageUnit)}',
+                ),
                 const SizedBox(height: 12),
                 if (onEdit != null || onDelete != null) ...[
                   Row(

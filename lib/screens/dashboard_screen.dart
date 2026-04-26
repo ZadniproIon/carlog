@@ -1047,7 +1047,7 @@ class _MaintenanceList extends StatelessWidget {
               final vehicle = vehicles
                   .where((item) => item.id == reminder.vehicleId)
                   .firstOrNull;
-              final dueInfo = _buildDueInfo(reminder);
+              final dueInfo = _buildDueInfo(reminder, vehicle);
               return Card(
                 elevation: 0,
                 shape: RoundedRectangleBorder(
@@ -1083,12 +1083,13 @@ class _MaintenanceList extends StatelessWidget {
     );
   }
 
-  String _buildDueInfo(MaintenanceReminder reminder) {
+  String _buildDueInfo(MaintenanceReminder reminder, Vehicle? vehicle) {
     if (reminder.dueDate != null) {
       return 'Due on ${_formatDate(reminder.dueDate!)}';
     }
     if (reminder.dueMileage != null) {
-      return 'Due at ${reminder.dueMileage} km';
+      final unit = distanceUnitShortLabel(vehicle?.distanceUnit ?? DistanceUnit.km);
+      return 'Due at ${reminder.dueMileage} $unit';
     }
     return 'No due date';
   }

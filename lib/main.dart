@@ -6,7 +6,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'firebase_options.dart';
 import 'mock_data.dart';
@@ -464,15 +463,12 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
-  static const String _demoModePrefKey = 'demo_mode_enabled';
-
   int _selectedIndex = 0;
   late List<Vehicle> _vehicles;
   late List<CarExpense> _expenses;
   late List<MaintenanceReminder> _reminders;
   bool _usingLocalData = true;
-  bool _demoModeEnabled = false;
-  SharedPreferences? _preferences;
+  bool _demoModeEnabled = true;
   CarlogDataSnapshot? _cachedNonDemoSnapshot;
 
   @override
@@ -483,17 +479,7 @@ class _HomeShellState extends State<HomeShell> {
     _expenses = const [];
     _reminders = const [];
 
-    unawaited(_loadPreferencesAndData());
-  }
-
-  Future<void> _loadPreferencesAndData() async {
-    _preferences = await SharedPreferences.getInstance();
-    final demoEnabled = _preferences!.getBool(_demoModePrefKey) ?? false;
-    if (!mounted) {
-      return;
-    }
-    _demoModeEnabled = demoEnabled;
-    await _loadInitialData();
+    unawaited(_loadInitialData());
   }
 
   Future<void> _loadInitialData({bool forceRefresh = false}) async {
@@ -899,28 +885,9 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   Future<void> _onDemoModeChanged(bool enabled) async {
-    final prefs = _preferences ?? await SharedPreferences.getInstance();
-    _preferences = prefs;
-    unawaited(prefs.setBool(_demoModePrefKey, enabled));
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _demoModeEnabled = enabled;
-    });
-
-    if (enabled) {
-      // Instant switch to demo data without waiting on any I/O.
-      await _loadInitialData();
-      return;
-    }
-
-    // Instant restore from cache if available.
+    // Prototype mode: demo dataset is always enabled.
+    _demoModeEnabled = true;
     await _loadInitialData();
-    // Background refresh to get latest cloud data.
-    unawaited(_loadInitialData(forceRefresh: true));
   }
 
   Future<ExpenseEntryMode?> _showExpenseInputModeSheet() {
