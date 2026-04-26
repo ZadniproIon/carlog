@@ -3,6 +3,70 @@ import 'package:lucide_icons/lucide_icons.dart';
 
 enum ExpenseCategory { fuel, service, insurance, parts, other }
 
+enum ExpenseCurrency { ron, eur, usd, gbp, mdl }
+
+ExpenseCurrency expenseCurrencyFromKey(String value) {
+  switch (value.toLowerCase().trim()) {
+    case 'ron':
+    case 'lei':
+    case 'leu':
+      return ExpenseCurrency.ron;
+    case 'eur':
+    case 'euro':
+      return ExpenseCurrency.eur;
+    case 'usd':
+    case 'dollar':
+    case '\$':
+      return ExpenseCurrency.usd;
+    case 'gbp':
+    case 'pound':
+    case '£':
+      return ExpenseCurrency.gbp;
+    case 'mdl':
+      return ExpenseCurrency.mdl;
+    default:
+      return ExpenseCurrency.ron;
+  }
+}
+
+String expenseCurrencyCode(ExpenseCurrency currency) {
+  switch (currency) {
+    case ExpenseCurrency.ron:
+      return 'RON';
+    case ExpenseCurrency.eur:
+      return 'EUR';
+    case ExpenseCurrency.usd:
+      return 'USD';
+    case ExpenseCurrency.gbp:
+      return 'GBP';
+    case ExpenseCurrency.mdl:
+      return 'MDL';
+  }
+}
+
+String expenseCurrencySymbol(ExpenseCurrency currency) {
+  switch (currency) {
+    case ExpenseCurrency.ron:
+      return 'lei';
+    case ExpenseCurrency.eur:
+      return 'EUR';
+    case ExpenseCurrency.usd:
+      return 'USD';
+    case ExpenseCurrency.gbp:
+      return 'GBP';
+    case ExpenseCurrency.mdl:
+      return 'MDL';
+  }
+}
+
+String formatExpenseAmount(
+  double amount,
+  ExpenseCurrency currency, {
+  int fractionDigits = 0,
+}) {
+  return '${amount.toStringAsFixed(fractionDigits)} ${expenseCurrencySymbol(currency)}';
+}
+
 enum VehicleFuelType {
   gasoline,
   diesel,
@@ -287,6 +351,7 @@ class CarExpense {
   const CarExpense({
     required this.id,
     required this.amount,
+    this.currency = ExpenseCurrency.ron,
     required this.category,
     required this.date,
     required this.description,
@@ -296,6 +361,7 @@ class CarExpense {
 
   final String id;
   final double amount;
+  final ExpenseCurrency currency;
   final ExpenseCategory category;
   final DateTime date;
   final String description;
@@ -305,6 +371,7 @@ class CarExpense {
   CarExpense copyWith({
     String? id,
     double? amount,
+    ExpenseCurrency? currency,
     ExpenseCategory? category,
     DateTime? date,
     String? description,
@@ -314,6 +381,7 @@ class CarExpense {
     return CarExpense(
       id: id ?? this.id,
       amount: amount ?? this.amount,
+      currency: currency ?? this.currency,
       category: category ?? this.category,
       date: date ?? this.date,
       description: description ?? this.description,
@@ -326,6 +394,7 @@ class CarExpense {
     return {
       'id': id,
       'amount': amount,
+      'currency': currency.name,
       'category': category.name,
       'dateMs': date.millisecondsSinceEpoch,
       'description': description,
@@ -340,6 +409,10 @@ class CarExpense {
           ? map['id'] as String
           : DateTime.now().millisecondsSinceEpoch.toString(),
       amount: _doubleFrom(map['amount']),
+      currency: expenseCurrencyFromKey(
+        (map['currency'] ?? map['currencyCode'] ?? map['currencySymbol'] ?? 'ron')
+            .toString(),
+      ),
       category: expenseCategoryFromKey((map['category'] ?? 'other').toString()),
       date: _dateFrom(map['dateMs'] ?? map['date'], fallback: DateTime.now()),
       description: (map['description'] as String?)?.trim() ?? 'Car expense',

@@ -207,7 +207,9 @@ class CarlogRepository {
   CarlogDataSnapshot _buildMockSnapshot({required bool isLocalOnly}) {
     return CarlogDataSnapshot(
       vehicles: List<Vehicle>.from(mockVehicles),
-      expenses: List<CarExpense>.from(mockExpenses)
+      expenses: mockExpenses
+          .map((expense) => expense.copyWith(currency: ExpenseCurrency.mdl))
+          .toList()
         ..sort((a, b) => b.date.compareTo(a.date)),
       reminders: List<MaintenanceReminder>.from(mockReminders),
       isLocalOnly: isLocalOnly,

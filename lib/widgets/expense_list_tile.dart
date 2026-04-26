@@ -72,7 +72,11 @@ class ExpenseListTile extends StatelessWidget {
       trailing:
           trailing ??
           Text(
-            '${expense.amount.toStringAsFixed(0)} lei',
+            formatExpenseAmount(
+              expense.amount,
+              expense.currency,
+              fractionDigits: 0,
+            ),
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
@@ -135,7 +139,11 @@ class ExpenseListTile extends StatelessWidget {
                 const SizedBox(height: 12),
                 _DetailRow(
                   label: 'Amount',
-                  value: '${expense.amount.toStringAsFixed(2)} lei',
+                  value: formatExpenseAmount(
+                    expense.amount,
+                    expense.currency,
+                    fractionDigits: 2,
+                  ),
                 ),
                 _DetailRow(
                   label: 'Vehicle',

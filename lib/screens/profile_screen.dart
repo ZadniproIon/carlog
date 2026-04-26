@@ -10,7 +10,9 @@ class ProfileScreen extends StatefulWidget {
     super.key,
     required this.user,
     required this.themeMode,
+    required this.expenseCurrency,
     required this.onThemeModeChanged,
+    required this.onExpenseCurrencyChanged,
     required this.onLogout,
     required this.firebaseEnabled,
     required this.usingLocalData,
@@ -21,7 +23,9 @@ class ProfileScreen extends StatefulWidget {
 
   final MockAuthUser user;
   final ThemeMode themeMode;
+  final ExpenseCurrency expenseCurrency;
   final ValueChanged<ThemeMode> onThemeModeChanged;
+  final ValueChanged<ExpenseCurrency> onExpenseCurrencyChanged;
   final VoidCallback onLogout;
   final bool firebaseEnabled;
   final bool usingLocalData;
@@ -78,6 +82,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _ThemeModeItem(
                 value: widget.themeMode,
                 onChanged: widget.onThemeModeChanged,
+              ),
+              _CurrencyItem(
+                value: widget.expenseCurrency,
+                onChanged: widget.onExpenseCurrencyChanged,
               ),
               _MenuSwitchItem(
                 icon: LucideIcons.bell,
@@ -533,6 +541,61 @@ class _ThemeModeItem extends StatelessWidget {
                 DropdownMenuItem(value: ThemeMode.light, child: Text('Light')),
                 DropdownMenuItem(value: ThemeMode.dark, child: Text('Dark')),
               ],
+              onChanged: (next) {
+                if (next != null) {
+                  onChanged(next);
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CurrencyItem extends StatelessWidget {
+  const _CurrencyItem({required this.value, required this.onChanged});
+
+  final ExpenseCurrency value;
+  final ValueChanged<ExpenseCurrency> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = Theme.of(context).textTheme.bodySmall?.color;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.coins, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Expense currency'),
+                const SizedBox(height: 2),
+                Text(
+                  'Used by Add expense and default amounts.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: muted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<ExpenseCurrency>(
+              value: value,
+              items: ExpenseCurrency.values
+                  .map(
+                    (currency) => DropdownMenuItem(
+                      value: currency,
+                      child: Text(expenseCurrencyCode(currency)),
+                    ),
+                  )
+                  .toList(),
               onChanged: (next) {
                 if (next != null) {
                   onChanged(next);

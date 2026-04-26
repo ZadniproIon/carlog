@@ -20,11 +20,13 @@ class AddExpenseScreen extends StatefulWidget {
     super.key,
     required this.vehicles,
     required this.initialMode,
+    required this.preferredCurrency,
     this.initialExpense,
   });
 
   final List<Vehicle> vehicles;
   final ExpenseEntryMode initialMode;
+  final ExpenseCurrency preferredCurrency;
   final CarExpense? initialExpense;
 
   @override
@@ -44,11 +46,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final _ocrService = const OcrReceiptService();
   final _imagePicker = ImagePicker();
 
-  StreamSubscription<SpeechRecognitionStatus>? _speechStatusSubscription;
   StreamSubscription<SpeechRecognitionResult>? _speechResultSubscription;
 
   late ExpenseWizardStep _step;
-  SpeechRecognitionStatus _voiceStatus = SpeechRecognitionStatus.idle;
 
   ExpenseCategory _category = ExpenseCategory.fuel;
   Vehicle? _selectedVehicle;
@@ -93,13 +93,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       _selectedDate.day,
     );
 
-    _speechStatusSubscription = _speechService.statusStream.listen((status) {
-      if (!mounted) return;
-      setState(() {
-        _voiceStatus = status;
-      });
-    });
-
     _speechResultSubscription = _speechService.resultsStream.listen((result) {
       if (!mounted || result.text.trim().isEmpty) return;
       _smartInputController.text = result.text.trim();
@@ -112,7 +105,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
   @override
   void dispose() {
-    _speechStatusSubscription?.cancel();
     _speechResultSubscription?.cancel();
     unawaited(_speechService.dispose());
 
@@ -157,77 +149,106 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 
   Widget _buildSmartInputStep() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final dividerColor = colorScheme.outlineVariant.withAlpha(120);
+
+    return Column(
       children: [
-        Text('Smart input', style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 6),
-        Text(
-          'Use one box for text/voice/OCR. We always open review before save.',
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-        if (_lastSmartSource != null) ...[
-          const SizedBox(height: 10),
-          Chip(
-            avatar: const Icon(LucideIcons.sparkles, size: 16),
-            label: Text('Last source: $_lastSmartSource'),
-          ),
-        ],
-        const SizedBox(height: 14),
-        Card(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'Smart input box',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      tooltip: 'Voice controls',
-                      onPressed: _isParsing ? null : _openVoiceControlsSheet,
-                      icon: const Icon(LucideIcons.mic),
-                    ),
-                    IconButton(
-                      tooltip: 'Take photo and extract text',
-                      onPressed: _isParsing ? null : _runPhotoOcrDemo,
-                      icon: const Icon(LucideIcons.camera),
-                    ),
-                    IconButton(
-                      tooltip: 'Clear',
-                      onPressed: _isParsing
-                          ? null
-                          : () {
-                              _smartInputController.clear();
-                            },
-                      icon: const Icon(LucideIcons.x),
-                    ),
-                  ],
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              Text('Smart input', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 14),
+              Container(
+                decoration: BoxDecoration(
+                  color: colorScheme.surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: dividerColor),
                 ),
-                Text(
-                  'Voice status: ${_voiceStatusLabel(_voiceStatus)}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 8),
-                TextFormField(
-                  controller: _smartInputController,
-                  maxLines: 6,
-                  decoration: const InputDecoration(
-                    hintText:
-                        'Type here, speak with mic, or capture a receipt photo.',
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextFormField(
+                        controller: _smartInputController,
+                        maxLines: 6,
+                        decoration: const InputDecoration(
+                          hintText:
+                              'Type here, speak with mic, or capture a receipt photo.',
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
+                          errorBorder: InputBorder.none,
+                          focusedErrorBorder: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
+                      if (_lastSmartSource != null) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Icon(
+                              LucideIcons.sparkles,
+                              size: 12,
+                              color: theme.textTheme.bodySmall?.color,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Source: $_lastSmartSource',
+                              style: theme.textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-                const SizedBox(height: 10),
-                Align(
-                  alignment: Alignment.centerRight,
+              ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  _buildSmartActionButton(
+                    tooltip: 'Voice controls',
+                    icon: LucideIcons.mic,
+                    onPressed: _isParsing ? null : _openVoiceControlsSheet,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildSmartActionButton(
+                    tooltip: 'Take photo and extract text',
+                    icon: LucideIcons.camera,
+                    onPressed: _isParsing ? null : _runPhotoOcrDemo,
+                  ),
+                  const SizedBox(width: 8),
+                  _buildSmartActionButton(
+                    tooltip: 'Clear',
+                    icon: LucideIcons.x,
+                    onPressed: _isParsing
+                        ? null
+                        : () {
+                            _smartInputController.clear();
+                          },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: SizedBox(
+                  width: double.infinity,
                   child: FilledButton.icon(
                     onPressed: _isParsing
                         ? null
@@ -245,11 +266,31 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                     label: const Text('Continue'),
                   ),
                 ),
-              ],
+              ),
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSmartActionButton({
+    required String tooltip,
+    required IconData icon,
+    required VoidCallback? onPressed,
+  }) {
+    final theme = Theme.of(context);
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      style: IconButton.styleFrom(
+        shape: CircleBorder(side: BorderSide(color: theme.dividerColor)),
+        backgroundColor: theme.colorScheme.surface,
+        foregroundColor: theme.colorScheme.onSurface,
+        padding: const EdgeInsets.all(12),
+        minimumSize: const Size(48, 48),
+      ),
+      icon: Icon(icon),
     );
   }
 
@@ -260,28 +301,35 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text(
-            'Expense details',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          TextFormField(
-            controller: _amountController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'Amount (lei)',
-              prefixText: 'lei ',
-            ),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return 'Please enter an amount';
-              }
-              final parsed = double.tryParse(value.replaceAll(',', '.').trim());
-              if (parsed == null || parsed <= 0) {
-                return 'Enter a valid positive number';
-              }
-              return null;
-            },
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 4,
+                child: TextFormField(
+                  controller: _amountController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText:
+                        'Amount (${expenseCurrencyCode(widget.preferredCurrency)})',
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter an amount';
+                    }
+                    final parsed = double.tryParse(
+                      value.replaceAll(',', '.').trim(),
+                    );
+                    if (parsed == null || parsed <= 0) {
+                      return 'Enter a valid positive number';
+                    }
+                    return null;
+                  },
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<ExpenseCategory>(
@@ -319,6 +367,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           const SizedBox(height: 12),
           TextFormField(
             controller: _descriptionController,
+            keyboardType: TextInputType.multiline,
+            minLines: 3,
+            maxLines: 6,
             decoration: const InputDecoration(labelText: 'Description'),
           ),
           const SizedBox(height: 12),
@@ -328,8 +379,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             decoration: InputDecoration(
               labelText:
                   'Mileage (${distanceUnitShortLabel(selectedUnit)}, optional)',
-              helperText:
-                  'If empty, the current vehicle mileage is used in ${distanceUnitShortLabel(selectedUnit)}.',
             ),
             validator: (value) {
               if (value == null || value.isEmpty) {
@@ -393,10 +442,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       TextPosition(offset: fallback.length),
     );
     _lastSmartSource = 'Voice';
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Added a demo voice transcript.')),
-    );
   }
 
   Future<void> _resetVoiceCapture() async {
@@ -407,98 +452,20 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     setState(() {
       _lastSmartSource = null;
     });
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Voice input reset.')));
   }
 
   Future<void> _openVoiceControlsSheet() async {
     await showModalBottomSheet<void>(
       context: context,
-      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (sheetContext) {
-        return SafeArea(
-          top: false,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              16,
-              6,
-              16,
-              16 + MediaQuery.of(sheetContext).viewPadding.bottom,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Voice input',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Start recording, pause/end, or reset.',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: 16),
-                StreamBuilder<SpeechRecognitionStatus>(
-                  stream: _speechService.statusStream,
-                  initialData: _voiceStatus,
-                  builder: (context, snapshot) {
-                    final status =
-                        snapshot.data ?? SpeechRecognitionStatus.idle;
-                    final isListening =
-                        status == SpeechRecognitionStatus.listening;
-                    final isProcessing =
-                        status == SpeechRecognitionStatus.processing;
-
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        _VoiceControlButton(
-                          icon: LucideIcons.play,
-                          label: 'Start',
-                          enabled: !isListening && !isProcessing,
-                          onPressed: _startVoiceCapture,
-                        ),
-                        _VoiceControlButton(
-                          icon: LucideIcons.pause,
-                          label: 'Pause/End',
-                          enabled: isListening,
-                          onPressed: () async {
-                            await _stopVoiceCapture();
-                            if (!sheetContext.mounted) return;
-                            await Navigator.of(sheetContext).maybePop();
-                          },
-                        ),
-                        _VoiceControlButton(
-                          icon: LucideIcons.rotateCcw,
-                          label: 'Reset',
-                          enabled: !isProcessing,
-                          onPressed: _resetVoiceCapture,
-                        ),
-                      ],
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-                ValueListenableBuilder<TextEditingValue>(
-                  valueListenable: _smartInputController,
-                  builder: (context, value, _) {
-                    final text = value.text.trim();
-                    return Text(
-                      text.isEmpty
-                          ? 'Transcript will appear in the smart input box.'
-                          : text,
-                      style: Theme.of(context).textTheme.bodySmall,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
+        return _SparkVoiceRecordingSheet(
+          speechService: _speechService,
+          transcriptController: _smartInputController,
+          onStart: _startVoiceCapture,
+          onStop: _stopVoiceCapture,
+          onReset: _resetVoiceCapture,
         );
       },
     );
@@ -539,23 +506,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         TextPosition(offset: raw.length),
       );
       _lastSmartSource = 'Photo/OCR';
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            result.rawText.trim().isEmpty
-                ? 'Photo captured. Added demo OCR text.'
-                : 'Photo captured and text extracted.',
-          ),
-        ),
-      );
     } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Could not capture photo. Please check camera access.'),
-        ),
-      );
+      // Keep flow silent: camera/OCR failures should not trigger popups.
     } finally {
       if (mounted) {
         setState(() {
@@ -571,9 +523,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }) async {
     final normalized = rawInput.trim();
     if (normalized.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please provide input first.')),
-      );
       return;
     }
 
@@ -591,17 +540,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         _step = ExpenseWizardStep.manualForm;
         _lastSmartSource = sourceLabel;
       });
-
-      final lowConfidence = (intent.confidence ?? 0) < 0.5;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            lowConfidence
-                ? 'Could not parse all details. Please review and complete the form.'
-                : 'Details parsed from $sourceLabel. Review and complete the form.',
-          ),
-        ),
-      );
     } catch (_) {
       if (!mounted) return;
 
@@ -613,14 +551,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         _step = ExpenseWizardStep.manualForm;
         _lastSmartSource = sourceLabel;
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Parsing failed. We opened the manual form with your description.',
-          ),
-        ),
-      );
     } finally {
       if (mounted) {
         setState(() {
@@ -688,9 +618,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       return;
     }
     if (_selectedVehicle == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please select a vehicle.')));
       return;
     }
 
@@ -707,6 +634,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           widget.initialExpense?.id ??
           DateTime.now().millisecondsSinceEpoch.toString(),
       amount: amount,
+      currency: widget.preferredCurrency,
       category: _category,
       date: _selectedDate,
       description: _descriptionController.text.isEmpty
@@ -776,17 +704,6 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     return value.toStringAsFixed(2);
   }
 
-  String _voiceStatusLabel(SpeechRecognitionStatus status) {
-    switch (status) {
-      case SpeechRecognitionStatus.idle:
-        return 'Idle';
-      case SpeechRecognitionStatus.listening:
-        return 'Listening';
-      case SpeechRecognitionStatus.processing:
-        return 'Processing';
-    }
-  }
-
   String _formatDate(DateTime date) {
     return '${date.day.toString().padLeft(2, '0')}/'
         '${date.month.toString().padLeft(2, '0')}/'
@@ -794,36 +711,333 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 }
 
-class _VoiceControlButton extends StatelessWidget {
-  const _VoiceControlButton({
-    required this.icon,
-    required this.label,
-    required this.enabled,
-    required this.onPressed,
+class _SparkVoiceRecordingSheet extends StatefulWidget {
+  const _SparkVoiceRecordingSheet({
+    required this.speechService,
+    required this.transcriptController,
+    required this.onStart,
+    required this.onStop,
+    required this.onReset,
   });
 
-  final IconData icon;
-  final String label;
-  final bool enabled;
-  final Future<void> Function() onPressed;
+  final SpeechRecognitionService speechService;
+  final TextEditingController transcriptController;
+  final Future<void> Function() onStart;
+  final Future<void> Function() onStop;
+  final Future<void> Function() onReset;
+
+  @override
+  State<_SparkVoiceRecordingSheet> createState() =>
+      _SparkVoiceRecordingSheetState();
+}
+
+class _SparkVoiceRecordingSheetState extends State<_SparkVoiceRecordingSheet> {
+  StreamSubscription<SpeechRecognitionStatus>? _statusSubscription;
+  Timer? _ticker;
+  SpeechRecognitionStatus _status = SpeechRecognitionStatus.idle;
+  Duration _elapsed = Duration.zero;
+  double _level = 0;
+  bool _hasStarted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _status = widget.speechService.status;
+    _statusSubscription = widget.speechService.statusStream.listen((status) {
+      if (!mounted) return;
+      setState(() {
+        _status = status;
+        if (status == SpeechRecognitionStatus.listening) {
+          _hasStarted = true;
+        }
+      });
+    });
+
+    _ticker = Timer.periodic(const Duration(milliseconds: 120), (_) {
+      if (!mounted) return;
+      setState(() {
+        if (_status == SpeechRecognitionStatus.listening) {
+          _elapsed += const Duration(milliseconds: 120);
+          final phase = (_elapsed.inMilliseconds % 900) / 900;
+          _level = phase < 0.5
+              ? (0.2 + phase * 1.6)
+              : (0.2 + (1 - phase) * 1.6);
+        } else {
+          _level *= 0.75;
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    _statusSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _handlePrimaryAction() async {
+    if (_status == SpeechRecognitionStatus.processing) return;
+
+    if (_status == SpeechRecognitionStatus.listening) {
+      await widget.onStop();
+      return;
+    }
+
+    await widget.onStart();
+    if (!mounted) return;
+    setState(() {
+      _hasStarted = true;
+    });
+  }
+
+  Future<void> _handleDiscard() async {
+    await widget.speechService.cancel();
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _handleSave() async {
+    if (_status == SpeechRecognitionStatus.listening) {
+      await widget.onStop();
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _handleReset() async {
+    await widget.onReset();
+    if (!mounted) return;
+    setState(() {
+      _hasStarted = false;
+      _elapsed = Duration.zero;
+      _level = 0;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        IconButton.filledTonal(
-          onPressed: enabled
-              ? () {
-                  unawaited(onPressed());
-                }
-              : null,
-          icon: Icon(icon),
-          tooltip: label,
+    final scheme = Theme.of(context).colorScheme;
+    final canSave =
+        _hasStarted && _status == SpeechRecognitionStatus.idle;
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.5,
+        decoration: BoxDecoration(
+          color: scheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         ),
-        const SizedBox(height: 4),
-        Text(label, style: Theme.of(context).textTheme.labelSmall),
-      ],
+        padding: EdgeInsets.fromLTRB(
+          24,
+          24,
+          24,
+          24 + MediaQuery.of(context).viewPadding.bottom,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                _SheetCircleButton(
+                  icon: LucideIcons.x,
+                  onPressed: _handleDiscard,
+                  enabled: _status != SpeechRecognitionStatus.processing,
+                ),
+                const Spacer(),
+                _SheetCircleButton(
+                  icon: LucideIcons.check,
+                  onPressed: _handleSave,
+                  enabled: canSave,
+                ),
+              ],
+            ),
+            const Spacer(),
+            Text(
+              _formatDuration(_elapsed),
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                letterSpacing: 0.8,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _VoiceWaveformMeter(
+              level: _level,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: _SheetCircleButton(
+                icon: _status == SpeechRecognitionStatus.listening
+                    ? LucideIcons.pause
+                    : LucideIcons.play,
+                onPressed: _handlePrimaryAction,
+                enabled: _status != SpeechRecognitionStatus.processing,
+                size: 64,
+                iconSize: 28,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _statusLabel(_status),
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: _status == SpeechRecognitionStatus.processing
+                  ? null
+                  : _handleReset,
+              icon: const Icon(LucideIcons.rotateCcw, size: 16),
+              label: const Text('Reset'),
+            ),
+            const SizedBox(height: 8),
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: widget.transcriptController,
+              builder: (context, value, _) {
+                final text = value.text.trim();
+                return Text(
+                  text.isEmpty
+                      ? 'Transcript will appear in the smart input box.'
+                      : text,
+                  style: Theme.of(context).textTheme.bodySmall,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                );
+              },
+            ),
+            const Spacer(),
+          ],
+        ),
+      ),
     );
+  }
+
+  String _statusLabel(SpeechRecognitionStatus status) {
+    switch (status) {
+      case SpeechRecognitionStatus.idle:
+        return _hasStarted ? 'Ready to save' : 'Ready';
+      case SpeechRecognitionStatus.listening:
+        return 'Recording...';
+      case SpeechRecognitionStatus.processing:
+        return 'Processing...';
+    }
+  }
+
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes.toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+}
+
+class _SheetCircleButton extends StatelessWidget {
+  const _SheetCircleButton({
+    required this.icon,
+    required this.onPressed,
+    this.enabled = true,
+    this.size = 48,
+    this.iconSize = 22,
+  });
+
+  final IconData icon;
+  final Future<void> Function() onPressed;
+  final bool enabled;
+  final double size;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      width: size,
+      height: size,
+      child: IconButton(
+        onPressed: enabled ? () => unawaited(onPressed()) : null,
+        icon: Icon(icon, size: iconSize),
+        style: IconButton.styleFrom(
+          shape: CircleBorder(side: BorderSide(color: Theme.of(context).dividerColor)),
+          backgroundColor: scheme.surface,
+          foregroundColor: scheme.onSurface,
+          disabledForegroundColor: scheme.onSurfaceVariant.withValues(alpha: 0.5),
+        ),
+      ),
+    );
+  }
+}
+
+class _VoiceWaveformMeter extends StatelessWidget {
+  const _VoiceWaveformMeter({required this.level, required this.color});
+
+  final double level;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 72,
+      width: double.infinity,
+      child: CustomPaint(
+        painter: _VoiceWaveformPainter(level: level, color: color),
+      ),
+    );
+  }
+}
+
+class _VoiceWaveformPainter extends CustomPainter {
+  const _VoiceWaveformPainter({required this.level, required this.color});
+
+  final double level;
+  final Color color;
+
+  static const List<double> _pattern = [
+    0.2,
+    0.35,
+    0.5,
+    0.3,
+    0.6,
+    0.4,
+    0.75,
+    0.45,
+    0.7,
+    0.4,
+    0.85,
+    0.5,
+    0.7,
+    0.45,
+    0.8,
+    0.4,
+    0.6,
+    0.35,
+    0.5,
+    0.3,
+    0.4,
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+    final midY = size.height / 2;
+    final maxAmp = size.height / 2;
+    final clamped = level.clamp(0.0, 1.0);
+    final step = size.width / (_pattern.length - 1);
+
+    for (int i = 0; i < _pattern.length; i++) {
+      final amp = maxAmp * clamped * _pattern[i];
+      final x = step * i;
+      canvas.drawLine(Offset(x, midY - amp), Offset(x, midY + amp), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _VoiceWaveformPainter oldDelegate) {
+    return oldDelegate.level != level || oldDelegate.color != color;
   }
 }
 

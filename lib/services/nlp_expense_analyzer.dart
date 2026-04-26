@@ -56,7 +56,7 @@ class NlpExpenseAnalyzer {
     double? amount;
     String? currency;
     final currencyMatch = RegExp(
-      r'(\d+[.,]?\d*)\s*(lei|ron|eur|euro)?',
+      r'(\d+[.,]?\d*)\s*(lei|ron|eur|euro|usd|gbp|mdl)?',
       caseSensitive: false,
     ).firstMatch(normalized);
     if (currencyMatch != null) {

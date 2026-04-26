@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'firebase_options.dart';
 import 'mock_data.dart';
@@ -463,12 +464,14 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
+  static const String _expenseCurrencyPrefKey = 'expense_currency';
   int _selectedIndex = 0;
   late List<Vehicle> _vehicles;
   late List<CarExpense> _expenses;
   late List<MaintenanceReminder> _reminders;
   bool _usingLocalData = true;
   bool _demoModeEnabled = true;
+  ExpenseCurrency _expenseCurrency = ExpenseCurrency.mdl;
   CarlogDataSnapshot? _cachedNonDemoSnapshot;
 
   @override
@@ -479,7 +482,30 @@ class _HomeShellState extends State<HomeShell> {
     _expenses = const [];
     _reminders = const [];
 
+    unawaited(_loadSettings());
     unawaited(_loadInitialData());
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedCurrency = prefs.getString(_expenseCurrencyPrefKey);
+    if (!mounted || storedCurrency == null || storedCurrency.trim().isEmpty) {
+      return;
+    }
+    setState(() {
+      _expenseCurrency = expenseCurrencyFromKey(storedCurrency);
+    });
+  }
+
+  Future<void> _onExpenseCurrencyChanged(ExpenseCurrency currency) async {
+    if (_expenseCurrency == currency) {
+      return;
+    }
+    setState(() {
+      _expenseCurrency = currency;
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_expenseCurrencyPrefKey, currency.name);
   }
 
   Future<void> _loadInitialData({bool forceRefresh = false}) async {
@@ -489,7 +515,9 @@ class _HomeShellState extends State<HomeShell> {
       }
       setState(() {
         _vehicles = List<Vehicle>.from(mockVehicles);
-        _expenses = List<CarExpense>.from(mockExpenses)
+        _expenses = mockExpenses
+            .map((expense) => expense.copyWith(currency: ExpenseCurrency.mdl))
+            .toList()
           ..sort((a, b) => b.date.compareTo(a.date));
         _reminders = List<MaintenanceReminder>.from(mockReminders);
         _usingLocalData = true;
@@ -789,6 +817,7 @@ class _HomeShellState extends State<HomeShell> {
         builder: (context) => AddExpenseScreen(
           vehicles: _vehicles,
           initialMode: ExpenseEntryMode.manual,
+          preferredCurrency: _expenseCurrency,
           initialExpense: expense,
         ),
       ),
@@ -1004,7 +1033,9 @@ class _HomeShellState extends State<HomeShell> {
       ProfileScreen(
         user: widget.currentUser,
         themeMode: widget.themeMode,
+        expenseCurrency: _expenseCurrency,
         onThemeModeChanged: widget.onThemeModeChanged,
+        onExpenseCurrencyChanged: _onExpenseCurrencyChanged,
         onLogout: widget.onLogout,
         firebaseEnabled: widget.firebaseEnabled,
         usingLocalData: _usingLocalData,
@@ -1028,8 +1059,11 @@ class _HomeShellState extends State<HomeShell> {
 
           final newExpense = await Navigator.of(context).push<CarExpense>(
             MaterialPageRoute(
-              builder: (context) =>
-                  AddExpenseScreen(vehicles: _vehicles, initialMode: mode),
+              builder: (context) => AddExpenseScreen(
+                vehicles: _vehicles,
+                initialMode: mode,
+                preferredCurrency: _expenseCurrency,
+              ),
             ),
           );
           if (newExpense != null) {
