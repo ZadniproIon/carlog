@@ -1088,6 +1088,7 @@ class _HomeShellState extends State<HomeShell> {
         onExpenseCurrencyChanged: _onExpenseCurrencyChanged,
         onFuelPriceCountryChanged: _onFuelPriceCountryChanged,
         onLogout: widget.onLogout,
+        vehicles: _vehicles,
         firebaseEnabled: widget.firebaseEnabled,
         usingLocalData: _usingLocalData,
         demoModeEnabled: _demoModeEnabled,

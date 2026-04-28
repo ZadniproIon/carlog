@@ -17,6 +17,7 @@ class ProfileScreen extends StatefulWidget {
     required this.onExpenseCurrencyChanged,
     required this.onFuelPriceCountryChanged,
     required this.onLogout,
+    required this.vehicles,
     required this.firebaseEnabled,
     required this.usingLocalData,
     required this.demoModeEnabled,
@@ -34,6 +35,7 @@ class ProfileScreen extends StatefulWidget {
   final ValueChanged<ExpenseCurrency> onExpenseCurrencyChanged;
   final ValueChanged<FuelPriceCountry> onFuelPriceCountryChanged;
   final VoidCallback onLogout;
+  final List<Vehicle> vehicles;
   final bool firebaseEnabled;
   final bool usingLocalData;
   final bool demoModeEnabled;
@@ -188,10 +190,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   String _accountSubtitle() {
-    final sync = widget.user.isCloudUser && !widget.usingLocalData
-        ? 'Firebase'
-        : 'Local';
-    return '${widget.user.email}  |  $sync';
+    return widget.user.email;
   }
 
   Future<void> _confirmLogout() async {
@@ -323,7 +322,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _openExportDataFlow() async {
     await Navigator.of(context).push<void>(
-      MaterialPageRoute(builder: (context) => const _ExportFlowScreen()),
+      MaterialPageRoute(
+        builder: (context) => _ExportFlowScreen(vehicles: widget.vehicles),
+      ),
     );
   }
 }
@@ -702,60 +703,92 @@ class _ImportFlowScreen extends StatefulWidget {
   State<_ImportFlowScreen> createState() => _ImportFlowScreenState();
 }
 
-class _ExportFlowScreen extends StatelessWidget {
-  const _ExportFlowScreen();
+class _ExportFlowScreen extends StatefulWidget {
+  const _ExportFlowScreen({required this.vehicles});
+
+  final List<Vehicle> vehicles;
+
+  @override
+  State<_ExportFlowScreen> createState() => _ExportFlowScreenState();
+}
+
+class _ExportFlowScreenState extends State<_ExportFlowScreen> {
+  bool _includeVehicles = true;
+  bool _includeExpenses = true;
+  bool _includeReminders = true;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const SparkTopBar(title: Text('Export data')),
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      body: SafeArea(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Choose what you want to export.',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Create a backup of your vehicles, expenses and reminders in a shareable file.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 20),
-            const _SectionTitle('Included data'),
-            const SizedBox(height: 8),
-            _MenuGroup(
-              children: const [
-                _ExportOptionRow(
-                  icon: LucideIcons.car,
-                  label: 'Vehicles',
-                ),
-                _ExportOptionRow(
-                  icon: LucideIcons.receipt,
-                  label: 'Expenses',
-                ),
-                _ExportOptionRow(
-                  icon: LucideIcons.calendarClock,
-                  label: 'Reminders',
-                ),
-              ],
-            ),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Export started. Your file will be ready shortly.',
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                children: [
+                  Text(
+                    'Choose what you want to export.',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Create a backup of your vehicles, expenses and reminders in a shareable file.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 20),
+                  const _SectionTitle('What to export'),
+                  const SizedBox(height: 8),
+                  _MenuGroup(
+                    children: [
+                      _ExportToggleRow(
+                        icon: LucideIcons.car,
+                        label: 'Vehicles',
+                        subtitle: 'Vehicle records and details',
+                        value: _includeVehicles,
+                        onChanged: (value) {
+                          setState(() {
+                            _includeVehicles = value;
+                          });
+                        },
                       ),
-                    ),
-                  );
-                },
-                child: const Text('Export data'),
+                      _ExportToggleRow(
+                        icon: LucideIcons.receipt,
+                        label: 'Expenses',
+                        subtitle: 'Expense history and categories',
+                        value: _includeExpenses,
+                        onChanged: (value) {
+                          setState(() {
+                            _includeExpenses = value;
+                          });
+                        },
+                      ),
+                      _ExportToggleRow(
+                        icon: LucideIcons.calendarClock,
+                        label: 'Reminders',
+                        subtitle: 'Upcoming and completed reminders',
+                        value: _includeReminders,
+                        onChanged: (value) {
+                          setState(() {
+                            _includeReminders = value;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _hasSelectedExportType ? _startExport : null,
+                  child: const Text('Export data'),
+                ),
               ),
             ),
           ],
@@ -763,35 +796,65 @@ class _ExportFlowScreen extends StatelessWidget {
       ),
     );
   }
+
+  bool get _hasSelectedExportType =>
+      _includeVehicles || _includeExpenses || _includeReminders;
+
+  void _startExport() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Export started. Your file will be ready shortly.'),
+      ),
+    );
+  }
 }
 
-class _ExportOptionRow extends StatelessWidget {
-  const _ExportOptionRow({required this.icon, required this.label});
+class _ExportToggleRow extends StatelessWidget {
+  const _ExportToggleRow({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
 
   final IconData icon;
   final String label;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
+    final muted = Theme.of(context).textTheme.bodySmall?.color;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
-          Icon(icon, size: 18),
+          Icon(icon, size: 20),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(label, style: Theme.of(context).textTheme.bodyLarge),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: muted),
+                ),
+              ],
+            ),
           ),
-          Icon(
-            LucideIcons.check,
-            size: 18,
-            color: Theme.of(context).colorScheme.primary,
-          ),
+          Switch.adaptive(value: value, onChanged: onChanged),
         ],
       ),
     );
   }
 }
+
 
 class _ImportFlowScreenState extends State<_ImportFlowScreen> {
   int _stepIndex = 0;
