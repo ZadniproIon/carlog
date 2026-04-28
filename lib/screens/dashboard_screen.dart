@@ -1489,9 +1489,9 @@ _FuelCostInsight _buildFuelCostInsight({
       continue;
     }
 
-    final liters = expense.amount / currentPrice;
+    final liters = expense.amount / referencePrice;
     projectedCost += liters * currentPrice;
-    referenceCost += liters * referencePrice;
+    referenceCost += expense.amount;
     trackedExpenses += 1;
   }
 
@@ -1650,14 +1650,14 @@ double _priceForFuelType({
 }
 
 String _signedPercent(double value) {
-  final absolute = value.abs().toStringAsFixed(1);
+  final absolute = value.abs().toStringAsFixed(1).replaceAll('.', ',');
   if (value > 0) {
     return '+$absolute%';
   }
   if (value < 0) {
     return '-$absolute%';
   }
-  return '0.0%';
+  return '0,0%';
 }
 
 String _formatSignedAmount(double value, String currencyCode) {

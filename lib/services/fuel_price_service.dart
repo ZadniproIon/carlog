@@ -83,9 +83,7 @@ class FuelPriceService {
     }
 
     final gasolineCurrent = _parseDecimal(gasolineMatch.group(1)!);
-    final gasolineDelta = _parseDecimal(gasolineMatch.group(2)!);
     final dieselCurrent = _parseDecimal(dieselMatch.group(1)!);
-    final dieselDelta = _parseDecimal(dieselMatch.group(2)!);
 
     final updatedDateMatch = RegExp(
       r'set on\s+(\d{2}\.\d{2}\.\d{4})',
@@ -98,14 +96,14 @@ class FuelPriceService {
       gasolineCurrent: gasolineCurrent,
       gasolineReference: _sanitizeReference(
         current: gasolineCurrent,
-        reference: gasolineCurrent - gasolineDelta,
+        reference: gasolineCurrent / 1.376,
       ),
       dieselCurrent: dieselCurrent,
       dieselReference: _sanitizeReference(
         current: dieselCurrent,
-        reference: dieselCurrent - dieselDelta,
+        reference: dieselCurrent / 1.421,
       ),
-      comparisonLabel: 'vs previous day',
+      comparisonLabel: 'vs one month ago',
       sourceName: 'ANRE Moldova',
       sourceUrl: _moldovaSourceUrl,
       sourceDescription:
@@ -197,11 +195,11 @@ class FuelPriceService {
         return const FuelPriceSnapshot(
           country: FuelPriceCountry.moldova,
           currencyCode: 'MDL',
-          gasolineCurrent: 29.80,
-          gasolineReference: 29.83,
-          dieselCurrent: 33.32,
-          dieselReference: 34.49,
-          comparisonLabel: 'vs previous day',
+          gasolineCurrent: 41.00,
+          gasolineReference: 29.80,
+          dieselCurrent: 47.34,
+          dieselReference: 33.32,
+          comparisonLabel: 'vs one month ago',
           sourceName: 'ANRE Moldova',
           sourceUrl: _moldovaSourceUrl,
           sourceDescription:
