@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '../models.dart';
+
 class NotificationService {
   NotificationService._();
 
@@ -65,6 +67,61 @@ class NotificationService {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  static Future<void> showReminderNotifications({
+    required List<MaintenanceReminder> reminders,
+    required List<Vehicle> vehicles,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'smartcar_channel',
+      'Smart Car Notifications',
+      channelDescription: 'Car expenses and maintenance reminders',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    const details = NotificationDetails(android: androidDetails);
+
+    for (var i = 0; i < reminders.length; i++) {
+      final reminder = reminders[i];
+      Vehicle? vehicle;
+      for (final candidate in vehicles) {
+        if (candidate.id == reminder.vehicleId) {
+          vehicle = candidate;
+          break;
+        }
+      }
+      final vehicleName = vehicle?.displayName ?? 'Vehicle';
+
+      await _plugin.show(
+        100 + i,
+        '$vehicleName: ${reminder.title}',
+        _buildReminderBody(reminder, vehicle),
+        details,
+      );
+    }
+  }
+
+  static String _buildReminderBody(
+    MaintenanceReminder reminder,
+    Vehicle? vehicle,
+  ) {
+    if (reminder.dueMileage != null) {
+      final unit = distanceUnitShortLabel(vehicle?.distanceUnit ?? DistanceUnit.km);
+      return 'Due at ${reminder.dueMileage} $unit.';
+    }
+    if (reminder.dueDate != null) {
+      final date = reminder.dueDate!;
+      final formatted =
+          '${date.day.toString().padLeft(2, '0')}.'
+          '${date.month.toString().padLeft(2, '0')}.'
+          '${date.year}';
+      return 'Due on $formatted.';
+    }
+    return reminder.description.isEmpty
+        ? 'Reminder generated from imported data.'
+        : reminder.description;
   }
 }
 

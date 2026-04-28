@@ -20,6 +20,8 @@ class DashboardScreen extends StatefulWidget {
     required this.reminders,
     required this.onEditReminder,
     required this.fuelPriceCountry,
+    required this.presentationDemoModeEnabled,
+    required this.presentationImportCompleted,
   });
 
   final List<Vehicle> vehicles;
@@ -27,6 +29,8 @@ class DashboardScreen extends StatefulWidget {
   final List<MaintenanceReminder> reminders;
   final ValueChanged<MaintenanceReminder> onEditReminder;
   final FuelPriceCountry fuelPriceCountry;
+  final bool presentationDemoModeEnabled;
+  final bool presentationImportCompleted;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -97,15 +101,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       appBar: SparkTopBar(
         title: const Text('Dashboard'),
-        actions: [
-          IconButton(
-            tooltip: 'Filters',
-            onPressed: _openFilters,
-            icon: const Icon(LucideIcons.slidersHorizontal),
-          ),
-        ],
+        actions: widget.presentationDemoModeEnabled &&
+                !widget.presentationImportCompleted
+            ? const []
+            : [
+                IconButton(
+                  tooltip: 'Filters',
+                  onPressed: _openFilters,
+                  icon: const Icon(LucideIcons.slidersHorizontal),
+                ),
+              ],
       ),
-      body: Column(
+      body: widget.presentationDemoModeEnabled &&
+              !widget.presentationImportCompleted
+          ? const _PresentationDashboardEmptyState()
+          : Column(
         children: [
           if (_filters.hasActiveFilters)
             Container(
@@ -368,6 +378,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
 
     return pills;
+  }
+}
+
+class _PresentationDashboardEmptyState extends StatelessWidget {
+  const _PresentationDashboardEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              LucideIcons.barChart3,
+              size: 28,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Not enough data yet',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Add more activity to view statistics and dashboard insights.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

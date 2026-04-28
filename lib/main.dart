@@ -468,6 +468,10 @@ class _HomeShellState extends State<HomeShell> {
   static const String _fuelPriceCountryPrefKey = 'fuel_price_country';
   static const String _showAnomalyDemoButtonsPrefKey =
       'show_anomaly_demo_buttons';
+  static const String _presentationDemoModePrefKey =
+      'presentation_demo_mode_enabled';
+  static const String _presentationImportExpensePrefix =
+      'presentation_import_';
   int _selectedIndex = 0;
   late List<Vehicle> _vehicles;
   late List<CarExpense> _expenses;
@@ -475,6 +479,8 @@ class _HomeShellState extends State<HomeShell> {
   bool _usingLocalData = true;
   bool _demoModeEnabled = true;
   bool _showAnomalyDemoButtons = true;
+  bool _presentationDemoModeEnabled = false;
+  bool _presentationImportCompleted = false;
   ExpenseCurrency _expenseCurrency = ExpenseCurrency.mdl;
   FuelPriceCountry _fuelPriceCountry = FuelPriceCountry.moldova;
   CarlogDataSnapshot? _cachedNonDemoSnapshot;
@@ -498,11 +504,18 @@ class _HomeShellState extends State<HomeShell> {
     final storedShowAnomalyDemoButtons = prefs.getBool(
       _showAnomalyDemoButtonsPrefKey,
     );
+    final storedPresentationDemoMode = prefs.getBool(
+      _presentationDemoModePrefKey,
+    );
     if (!mounted || storedCurrency == null || storedCurrency.trim().isEmpty) {
       if (storedFuelCountry == null || storedFuelCountry.trim().isEmpty) {
-        return;
+        if (storedShowAnomalyDemoButtons == null &&
+            storedPresentationDemoMode == null) {
+          return;
+        }
       }
     }
+    final shouldReloadForPresentation = storedPresentationDemoMode == true;
     setState(() {
       if (storedCurrency != null && storedCurrency.trim().isNotEmpty) {
         _expenseCurrency = expenseCurrencyFromKey(storedCurrency);
@@ -513,7 +526,13 @@ class _HomeShellState extends State<HomeShell> {
       if (storedShowAnomalyDemoButtons != null) {
         _showAnomalyDemoButtons = storedShowAnomalyDemoButtons;
       }
+      if (storedPresentationDemoMode != null) {
+        _presentationDemoModeEnabled = storedPresentationDemoMode;
+      }
     });
+    if (shouldReloadForPresentation) {
+      await _loadInitialData(forceRefresh: true);
+    }
   }
 
   Future<void> _onExpenseCurrencyChanged(ExpenseCurrency currency) async {
@@ -552,7 +571,49 @@ class _HomeShellState extends State<HomeShell> {
     await prefs.setBool(_showAnomalyDemoButtonsPrefKey, enabled);
   }
 
+  Future<void> _onPresentationDemoModeChanged(bool enabled) async {
+    if (_presentationDemoModeEnabled == enabled) {
+      return;
+    }
+
+    setState(() {
+      _presentationDemoModeEnabled = enabled;
+      _presentationImportCompleted = false;
+    });
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_presentationDemoModePrefKey, enabled);
+    await _loadInitialData(forceRefresh: true);
+  }
+
+  Future<void> _resetPresentationDemo() async {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _presentationImportCompleted = false;
+      _vehicles = List<Vehicle>.from(mockVehicles);
+      _expenses = const <CarExpense>[];
+      _reminders = const <MaintenanceReminder>[];
+      _usingLocalData = true;
+    });
+  }
+
   Future<void> _loadInitialData({bool forceRefresh = false}) async {
+    if (_presentationDemoModeEnabled) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _vehicles = List<Vehicle>.from(mockVehicles);
+        _expenses = const <CarExpense>[];
+        _reminders = const <MaintenanceReminder>[];
+        _presentationImportCompleted = false;
+        _usingLocalData = true;
+      });
+      return;
+    }
+
     if (_demoModeEnabled) {
       if (!mounted) {
         return;
@@ -566,7 +627,7 @@ class _HomeShellState extends State<HomeShell> {
                 )
                 .toList()
               ..sort((a, b) => b.date.compareTo(a.date));
-        _reminders = List<MaintenanceReminder>.from(mockReminders);
+        _reminders = buildMockReminders();
         _usingLocalData = true;
       });
       return;
@@ -865,7 +926,9 @@ class _HomeShellState extends State<HomeShell> {
           vehicles: _vehicles,
           initialMode: ExpenseEntryMode.manual,
           preferredCurrency: _expenseCurrency,
-          showAnomalyDemoButtons: _showAnomalyDemoButtons,
+          showAnomalyDemoButtons:
+              _showAnomalyDemoButtons && !_presentationDemoModeEnabled,
+          presentationDemoModeEnabled: _presentationDemoModeEnabled,
           initialExpense: expense,
         ),
       ),
@@ -967,6 +1030,43 @@ class _HomeShellState extends State<HomeShell> {
     await _loadInitialData();
   }
 
+  Future<int> _runPresentationDemoImport() async {
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+
+    final importedExpenses = _buildPresentationImportExpenses(
+      preferredCurrency: _expenseCurrency,
+    );
+    final preservedExpenses = _expenses
+        .where((expense) => !expense.id.startsWith(_presentationImportExpensePrefix))
+        .toList();
+    final mergedExpenses = <CarExpense>[
+      ...preservedExpenses,
+      ...importedExpenses,
+    ]..sort((a, b) => b.date.compareTo(a.date));
+
+    if (!mounted) {
+      return importedExpenses.length;
+    }
+
+    setState(() {
+      _expenses = mergedExpenses;
+      _reminders = buildMockReminders();
+      _presentationImportCompleted = true;
+      _usingLocalData = true;
+    });
+
+    unawaited(_pushPresentationReminderNotifications());
+    return importedExpenses.length;
+  }
+
+  Future<void> _pushPresentationReminderNotifications() async {
+    await Future<void>.delayed(const Duration(seconds: 3));
+    await NotificationService.showReminderNotifications(
+      reminders: _reminders,
+      vehicles: _vehicles,
+    );
+  }
+
   Future<ExpenseEntryMode?> _showExpenseInputModeSheet() {
     const modes = <ExpenseEntryMode>[
       ExpenseEntryMode.smart,
@@ -1056,6 +1156,8 @@ class _HomeShellState extends State<HomeShell> {
         reminders: _reminders,
         onEditReminder: _openEditReminderFlow,
         fuelPriceCountry: _fuelPriceCountry,
+        presentationDemoModeEnabled: _presentationDemoModeEnabled,
+        presentationImportCompleted: _presentationImportCompleted,
       ),
       ExpensesScreen(
         expenses: _expenses,
@@ -1096,6 +1198,10 @@ class _HomeShellState extends State<HomeShell> {
         onUpdateProfile: widget.onUpdateProfile,
         showAnomalyDemoButtons: _showAnomalyDemoButtons,
         onShowAnomalyDemoButtonsChanged: _onShowAnomalyDemoButtonsChanged,
+        presentationDemoModeEnabled: _presentationDemoModeEnabled,
+        onPresentationDemoModeChanged: _onPresentationDemoModeChanged,
+        onResetPresentationDemo: _resetPresentationDemo,
+        onRunPresentationDemoImport: _runPresentationDemoImport,
       ),
     ];
 
@@ -1117,7 +1223,9 @@ class _HomeShellState extends State<HomeShell> {
                 vehicles: _vehicles,
                 initialMode: mode,
                 preferredCurrency: _expenseCurrency,
-                showAnomalyDemoButtons: _showAnomalyDemoButtons,
+                showAnomalyDemoButtons:
+                    _showAnomalyDemoButtons && !_presentationDemoModeEnabled,
+                presentationDemoModeEnabled: _presentationDemoModeEnabled,
               ),
             ),
           );
@@ -1167,4 +1275,39 @@ class _HomeShellState extends State<HomeShell> {
       floatingActionButton: fab,
     );
   }
+}
+
+List<CarExpense> _buildPresentationImportExpenses({
+  required ExpenseCurrency preferredCurrency,
+}) {
+  final baseExpenses = mockExpenses
+      .map((expense) => expense.copyWith(currency: preferredCurrency))
+      .toList();
+  final generated = <CarExpense>[];
+  final today = DateTime.now();
+
+  for (var i = 0; i < 72; i++) {
+    final template = baseExpenses[i % baseExpenses.length];
+    final multiplier = 0.94 + ((i % 5) * 0.035);
+    final daysAgo = (i * 3) % 210;
+    final adjustedDate = DateTime(
+      today.year,
+      today.month,
+      today.day,
+    ).subtract(Duration(days: daysAgo));
+
+    generated.add(
+      template.copyWith(
+        id: 'presentation_import_$i',
+        amount: double.parse(
+          (template.amount * multiplier).toStringAsFixed(0),
+        ),
+        date: adjustedDate,
+        mileage: template.mileage + ((i ~/ 12) * 120),
+      ),
+    );
+  }
+
+  generated.sort((a, b) => b.date.compareTo(a.date));
+  return generated;
 }

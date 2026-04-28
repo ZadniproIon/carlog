@@ -329,34 +329,39 @@ final List<CarExpense> mockExpenses = [
   ),
 ];
 
-final List<MaintenanceReminder> mockReminders = [
-  MaintenanceReminder(
-    id: 'm1',
-    title: 'Oil change',
-    description: 'Recommended every 15.000 km or 12 months.',
-    dueMileage: 180000,
-    vehicleId: 'v1',
-  ),
-  MaintenanceReminder(
-    id: 'm2',
-    title: 'ITP (Romanian inspection)',
-    description: 'Next technical inspection for Passat.',
-    dueDate: DateTime.now().add(const Duration(days: 90)),
-    vehicleId: 'v1',
-  ),
-  MaintenanceReminder(
-    id: 'm3',
-    title: 'Tire rotation',
-    description: 'Rotate tires and check alignment.',
-    dueMileage: 26000,
-    vehicleId: 'v2',
-  ),
-  MaintenanceReminder(
-    id: 'm4',
-    title: 'Hybrid system check',
-    description: 'Check high-voltage battery and cooling system.',
-    dueDate: DateTime.now().add(const Duration(days: 120)),
-    vehicleId: 'v3',
-  ),
-];
+List<MaintenanceReminder> buildMockReminders() {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+
+  return [
+    MaintenanceReminder(
+      id: 'm1',
+      title: 'Oil change',
+      description: 'Recommended every 15.000 km or 12 months.',
+      dueMileage: 169200,
+      vehicleId: 'v1',
+    ),
+    MaintenanceReminder(
+      id: 'm2',
+      title: 'ITP (Romanian inspection)',
+      description: 'Next technical inspection for Passat.',
+      dueDate: today.add(const Duration(days: 6)),
+      vehicleId: 'v1',
+    ),
+    MaintenanceReminder(
+      id: 'm3',
+      title: 'Tire rotation',
+      description: 'Rotate tires and check alignment.',
+      dueMileage: 25500,
+      vehicleId: 'v2',
+    ),
+    MaintenanceReminder(
+      id: 'm4',
+      title: 'Hybrid system check',
+      description: 'Check high-voltage battery and cooling system.',
+      dueDate: today.add(const Duration(days: 14)),
+      vehicleId: 'v3',
+    ),
+  ];
+}
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -24,6 +26,10 @@ class ProfileScreen extends StatefulWidget {
     required this.onDemoModeChanged,
     required this.showAnomalyDemoButtons,
     required this.onShowAnomalyDemoButtonsChanged,
+    required this.presentationDemoModeEnabled,
+    required this.onPresentationDemoModeChanged,
+    required this.onResetPresentationDemo,
+    required this.onRunPresentationDemoImport,
     required this.onUpdateProfile,
   });
 
@@ -42,6 +48,10 @@ class ProfileScreen extends StatefulWidget {
   final ValueChanged<bool> onDemoModeChanged;
   final bool showAnomalyDemoButtons;
   final ValueChanged<bool> onShowAnomalyDemoButtonsChanged;
+  final bool presentationDemoModeEnabled;
+  final ValueChanged<bool> onPresentationDemoModeChanged;
+  final Future<void> Function() onResetPresentationDemo;
+  final Future<int> Function() onRunPresentationDemoImport;
   final Future<String?> Function(String name, String email) onUpdateProfile;
 
   @override
@@ -184,6 +194,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          const _SectionTitle('Presentation demo'),
+          const SizedBox(height: 8),
+          _MenuGroup(
+            children: [
+              _MenuSwitchItem(
+                icon: LucideIcons.clapperboard,
+                label: 'Presentation demo mode',
+                subtitle: 'Use the staged 2-minute recording flow',
+                value: widget.presentationDemoModeEnabled,
+                onChanged: widget.onPresentationDemoModeChanged,
+              ),
+              _MenuItem(
+                icon: LucideIcons.rotateCcw,
+                label: 'Reset presentation demo',
+                subtitle: 'Clear added data and restart the scripted flow',
+                onTap: () => unawaited(widget.onResetPresentationDemo()),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -316,7 +346,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _openImportDataFlow() async {
     await Navigator.of(context).push<void>(
-      MaterialPageRoute(builder: (context) => const _ImportFlowScreen()),
+      MaterialPageRoute(
+        builder: (context) => _ImportFlowScreen(
+          presentationDemoModeEnabled: widget.presentationDemoModeEnabled,
+          onRunPresentationDemoImport: widget.onRunPresentationDemoImport,
+        ),
+      ),
     );
   }
 
@@ -697,7 +732,13 @@ class _FuelPriceCountryItem extends StatelessWidget {
 }
 
 class _ImportFlowScreen extends StatefulWidget {
-  const _ImportFlowScreen();
+  const _ImportFlowScreen({
+    required this.presentationDemoModeEnabled,
+    required this.onRunPresentationDemoImport,
+  });
+
+  final bool presentationDemoModeEnabled;
+  final Future<int> Function() onRunPresentationDemoImport;
 
   @override
   State<_ImportFlowScreen> createState() => _ImportFlowScreenState();
@@ -861,6 +902,7 @@ class _ImportFlowScreenState extends State<_ImportFlowScreen> {
   bool _vehiclePrepared = false;
   bool _isImporting = false;
   bool _importComplete = false;
+  int? _importedEntriesCount;
   final List<_ImportFile> _selectedFiles = <_ImportFile>[];
 
   @override
@@ -910,6 +952,7 @@ class _ImportFlowScreenState extends State<_ImportFlowScreen> {
       files: _selectedFiles,
       isImporting: _isImporting,
       isComplete: _importComplete,
+      importedEntriesCount: _importedEntriesCount,
     );
   }
 
@@ -1024,6 +1067,7 @@ class _ImportFlowScreenState extends State<_ImportFlowScreen> {
     setState(() {
       _selectedFiles.addAll(filesToAdd);
       _importComplete = false;
+      _importedEntriesCount = null;
     });
   }
 
@@ -1031,6 +1075,7 @@ class _ImportFlowScreenState extends State<_ImportFlowScreen> {
     setState(() {
       _selectedFiles.clear();
       _importComplete = false;
+      _importedEntriesCount = null;
     });
   }
 
@@ -1042,6 +1087,7 @@ class _ImportFlowScreenState extends State<_ImportFlowScreen> {
     setState(() {
       _selectedFiles.removeAt(index);
       _importComplete = false;
+      _importedEntriesCount = null;
     });
   }
 
@@ -1049,14 +1095,21 @@ class _ImportFlowScreenState extends State<_ImportFlowScreen> {
     setState(() {
       _isImporting = true;
       _importComplete = false;
+      _importedEntriesCount = null;
     });
 
-    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    int? importedEntriesCount;
+    if (widget.presentationDemoModeEnabled) {
+      importedEntriesCount = await widget.onRunPresentationDemoImport();
+    } else {
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+    }
     if (!mounted) return;
 
     setState(() {
       _isImporting = false;
       _importComplete = true;
+      _importedEntriesCount = importedEntriesCount;
     });
   }
 }
@@ -1279,11 +1332,13 @@ class _ImportReviewStep extends StatelessWidget {
     required this.files,
     required this.isImporting,
     required this.isComplete,
+    required this.importedEntriesCount,
   });
 
   final List<_ImportFile> files;
   final bool isImporting;
   final bool isComplete;
+  final int? importedEntriesCount;
 
   @override
   Widget build(BuildContext context) {
@@ -1321,7 +1376,13 @@ class _ImportReviewStep extends StatelessWidget {
               children: [
                 Icon(LucideIcons.checkCircle2, color: scheme.primary),
                 const SizedBox(width: 8),
-                const Expanded(child: Text('Import flow complete.')),
+                Expanded(
+                  child: Text(
+                    importedEntriesCount == null
+                        ? 'Import flow complete.'
+                        : 'Import complete, added $importedEntriesCount entries',
+                  ),
+                ),
               ],
             ),
           ] else ...[

@@ -22,6 +22,7 @@ class AddExpenseScreen extends StatefulWidget {
     required this.initialMode,
     required this.preferredCurrency,
     required this.showAnomalyDemoButtons,
+    required this.presentationDemoModeEnabled,
     this.initialExpense,
   });
 
@@ -29,6 +30,7 @@ class AddExpenseScreen extends StatefulWidget {
   final ExpenseEntryMode initialMode;
   final ExpenseCurrency preferredCurrency;
   final bool showAnomalyDemoButtons;
+  final bool presentationDemoModeEnabled;
   final CarExpense? initialExpense;
 
   @override
@@ -510,9 +512,32 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     await _speechService.stopListening();
 
     if (!mounted) return;
+
+    if (widget.presentationDemoModeEnabled) {
+      setState(() {
+        _isParsing = true;
+      });
+      await Future<void>.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+
+      final recognizedText = _smartInputController.text.trim();
+      final fallback = 'motorina 320 mdl pentru passat, pe la 186000 km';
+      final finalText = recognizedText.isNotEmpty ? recognizedText : fallback;
+
+      _smartInputController.text = finalText;
+      _smartInputController.selection = TextSelection.fromPosition(
+        TextPosition(offset: finalText.length),
+      );
+      setState(() {
+        _lastSmartSource = 'Voice';
+        _isParsing = false;
+      });
+      return;
+    }
+
     if (_smartInputController.text.trim().isNotEmpty) return;
 
-    final fallback = 'motorina 320 lei pentru passat, pe la 186000 km';
+    const fallback = 'motorina 320 mdl pentru passat, pe la 186000 km';
 
     _smartInputController.text = fallback;
     _smartInputController.selection = TextSelection.fromPosition(
@@ -569,7 +594,16 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
       final fallback = _buildPhotoOcrDemoFallback();
 
-      final raw = result.rawText.trim().isEmpty
+      if (widget.presentationDemoModeEnabled) {
+        await Future<void>.delayed(const Duration(seconds: 2));
+        if (!mounted) {
+          return;
+        }
+      }
+
+      final raw = widget.presentationDemoModeEnabled
+          ? fallback
+          : result.rawText.trim().isEmpty
           ? fallback
           : result.rawText.trim();
       _smartInputController.text = raw;
@@ -623,6 +657,21 @@ Notes: periodic service and front brake repair
       return;
     }
 
+    final presentationAnomalyMessage =
+        widget.presentationDemoModeEnabled
+            ? _presentationAnomalyMessageForInput(normalized)
+            : null;
+    if (presentationAnomalyMessage != null) {
+      final shouldProceed = await showDialog<bool>(
+        context: context,
+        builder: (context) =>
+            _AnomalyMessageDialog(message: presentationAnomalyMessage),
+      );
+      if (shouldProceed != true || !mounted) {
+        return;
+      }
+    }
+
     setState(() {
       _isParsing = true;
     });
@@ -655,6 +704,35 @@ Notes: periodic service and front brake repair
         });
       }
     }
+  }
+
+  String? _presentationAnomalyMessageForInput(String rawInput) {
+    final normalized = rawInput.toLowerCase();
+
+    if (normalized.contains('tesla') &&
+        normalized.contains('model 3') &&
+        normalized.contains('turbo')) {
+      return 'Tesla Model 3 repair bill mentions a turbo, but this vehicle does not use a turbocharger.';
+    }
+
+    final mentionsPorsche = normalized.contains('porsche') &&
+        normalized.contains('cayenne');
+    final mentionsFuel = normalized.contains('benzina') ||
+        normalized.contains('fuel') ||
+        normalized.contains('petrol');
+    final mentionsHighAmount = normalized.contains('4200') ||
+        normalized.contains('4 200');
+    if (mentionsPorsche && mentionsFuel && mentionsHighAmount) {
+      return 'Fuel amount entered for Porsche Cayenne appears too high for the vehicle tank size when compared against current fuel prices in Moldova.';
+    }
+
+    if (normalized.contains('passat') &&
+        normalized.contains('154000') &&
+        (normalized.contains('motorina') || normalized.contains('diesel'))) {
+      return 'Mileage entered for Volkswagen Passat is lower than the previous recorded value.';
+    }
+
+    return null;
   }
 
   void _applyParsedIntent(ParsedExpenseIntent intent, String rawInput) {

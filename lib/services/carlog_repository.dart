@@ -211,7 +211,7 @@ class CarlogRepository {
           .map((expense) => expense.copyWith(currency: ExpenseCurrency.mdl))
           .toList()
         ..sort((a, b) => b.date.compareTo(a.date)),
-      reminders: List<MaintenanceReminder>.from(mockReminders),
+      reminders: buildMockReminders(),
       isLocalOnly: isLocalOnly,
     );
   }
