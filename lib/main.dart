@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -472,15 +473,41 @@ class _HomeShellState extends State<HomeShell> {
       'presentation_demo_mode_enabled';
   static const String _presentationImportExpensePrefix =
       'presentation_import_';
+  static const String _sharingRolePrefKey = 'demo_sharing_role';
+  static const String _sharedVehiclePackagesPrefKey =
+      'demo_shared_vehicle_packages';
+  static const String _ownerSharingUserId = 'demo_owner';
+  static const String _recipientSharingUserId = 'demo_recipient';
+  static const String _ownerSharingName = 'Alex Popa';
+  static const String _ownerSharingEmail = 'alex.popa@gmail.com';
+  static const String _recipientSharingName = 'Mia Ionescu';
+  static const String _recipientSharingEmail = 'mia.ionescu@gmail.com';
+  static const String _shareMemberStelaId = 'share_member_stela';
+  static const String _shareMemberMihaiId = 'share_member_mihai';
+  static const String _shareMemberAnatolieId = 'share_member_anatolie';
+  static const String _shareMemberStelaLabel =
+      'Stela Zadnipro|stela.zadnipro@gmail.com';
+  static const String _shareMemberMihaiLabel =
+      'Mihai Zadnipro|mihai.zadnipro@gmail.com';
+  static const String _shareMemberAnatolieLabel =
+      'Anatolie Zadnipro|anatolie.zadnipro@gmail.com';
   int _selectedIndex = 0;
   late List<Vehicle> _vehicles;
   late List<CarExpense> _expenses;
   late List<MaintenanceReminder> _reminders;
+  late List<Vehicle> _ownerVehicles;
+  late List<CarExpense> _ownerExpenses;
+  late List<MaintenanceReminder> _ownerReminders;
+  late List<Vehicle> _recipientVehicles;
+  late List<CarExpense> _recipientExpenses;
+  late List<MaintenanceReminder> _recipientReminders;
+  List<SharedVehiclePackage> _sharedVehiclePackages = <SharedVehiclePackage>[];
   bool _usingLocalData = true;
   bool _demoModeEnabled = true;
   bool _showAnomalyDemoButtons = true;
   bool _presentationDemoModeEnabled = false;
   bool _presentationImportCompleted = false;
+  DemoSharingRole _sharingRole = DemoSharingRole.owner;
   ExpenseCurrency _expenseCurrency = ExpenseCurrency.mdl;
   FuelPriceCountry _fuelPriceCountry = FuelPriceCountry.moldova;
   CarlogDataSnapshot? _cachedNonDemoSnapshot;
@@ -489,9 +516,15 @@ class _HomeShellState extends State<HomeShell> {
   void initState() {
     super.initState();
 
-    _vehicles = const [];
-    _expenses = const [];
-    _reminders = const [];
+    _vehicles = <Vehicle>[];
+    _expenses = <CarExpense>[];
+    _reminders = <MaintenanceReminder>[];
+    _ownerVehicles = <Vehicle>[];
+    _ownerExpenses = <CarExpense>[];
+    _ownerReminders = <MaintenanceReminder>[];
+    _recipientVehicles = <Vehicle>[];
+    _recipientExpenses = <CarExpense>[];
+    _recipientReminders = <MaintenanceReminder>[];
 
     unawaited(_loadSettings());
     unawaited(_loadInitialData());
@@ -507,10 +540,14 @@ class _HomeShellState extends State<HomeShell> {
     final storedPresentationDemoMode = prefs.getBool(
       _presentationDemoModePrefKey,
     );
+    final storedSharingRole = prefs.getString(_sharingRolePrefKey);
+    final storedSharedPackages = prefs.getString(_sharedVehiclePackagesPrefKey);
     if (!mounted || storedCurrency == null || storedCurrency.trim().isEmpty) {
       if (storedFuelCountry == null || storedFuelCountry.trim().isEmpty) {
         if (storedShowAnomalyDemoButtons == null &&
-            storedPresentationDemoMode == null) {
+            storedPresentationDemoMode == null &&
+            storedSharingRole == null &&
+            storedSharedPackages == null) {
           return;
         }
       }
@@ -529,10 +566,44 @@ class _HomeShellState extends State<HomeShell> {
       if (storedPresentationDemoMode != null) {
         _presentationDemoModeEnabled = storedPresentationDemoMode;
       }
+      if (storedSharingRole == DemoSharingRole.recipient.name) {
+        _sharingRole = DemoSharingRole.recipient;
+      }
+      if (storedSharedPackages != null && storedSharedPackages.trim().isNotEmpty) {
+        try {
+          final decoded = jsonDecode(storedSharedPackages) as List<dynamic>;
+          _sharedVehiclePackages = decoded
+              .map(
+                (item) => SharedVehiclePackage.fromMap(
+                  Map<String, dynamic>.from(item as Map<dynamic, dynamic>),
+                ),
+              )
+              .toList();
+        } catch (_) {
+          _sharedVehiclePackages = <SharedVehiclePackage>[];
+        }
+      }
     });
+    _rebuildVisibleData();
     if (shouldReloadForPresentation) {
       await _loadInitialData(forceRefresh: true);
     }
+  }
+
+  String get _activeSharingUserId =>
+      _sharingRole == DemoSharingRole.owner
+          ? _ownerSharingUserId
+          : _recipientSharingUserId;
+
+  Future<void> _saveSharingState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_sharingRolePrefKey, _sharingRole.name);
+    await prefs.setString(
+      _sharedVehiclePackagesPrefKey,
+      jsonEncode(
+        _sharedVehiclePackages.map((package) => package.toMap()).toList(),
+      ),
+    );
   }
 
   Future<void> _onExpenseCurrencyChanged(ExpenseCurrency currency) async {
@@ -592,11 +663,283 @@ class _HomeShellState extends State<HomeShell> {
     }
     setState(() {
       _presentationImportCompleted = false;
-      _vehicles = List<Vehicle>.from(mockVehicles);
-      _expenses = const <CarExpense>[];
-      _reminders = const <MaintenanceReminder>[];
+      _ownerVehicles = List<Vehicle>.from(mockVehicles);
+      _ownerExpenses = <CarExpense>[];
+      _ownerReminders = <MaintenanceReminder>[];
+      _recipientVehicles = <Vehicle>[];
+      _recipientExpenses = <CarExpense>[];
+      _recipientReminders = <MaintenanceReminder>[];
+      _sharedVehiclePackages = <SharedVehiclePackage>[];
       _usingLocalData = true;
+      _sharingRole = DemoSharingRole.owner;
+      _rebuildVisibleData();
     });
+    await _saveSharingState();
+  }
+
+  void _removeSharedVehicleIdsFromPrivateData() {
+    final sharedIds = _sharedVehiclePackages.map((item) => item.vehicle.id).toSet();
+    if (sharedIds.isEmpty) {
+      return;
+    }
+    _ownerVehicles = _ownerVehicles
+        .where((vehicle) => !sharedIds.contains(vehicle.id))
+        .toList();
+    _ownerExpenses = _ownerExpenses
+        .where((expense) => !sharedIds.contains(expense.vehicleId))
+        .toList();
+    _ownerReminders = _ownerReminders
+        .where((reminder) => !sharedIds.contains(reminder.vehicleId))
+        .toList();
+    _recipientVehicles = _recipientVehicles
+        .where((vehicle) => !sharedIds.contains(vehicle.id))
+        .toList();
+    _recipientExpenses = _recipientExpenses
+        .where((expense) => !sharedIds.contains(expense.vehicleId))
+        .toList();
+    _recipientReminders = _recipientReminders
+        .where((reminder) => !sharedIds.contains(reminder.vehicleId))
+        .toList();
+  }
+
+  void _rebuildVisibleData() {
+    _removeSharedVehicleIdsFromPrivateData();
+
+    final visiblePackages = _sharedVehiclePackages
+        .where((package) => package.access.hasAccess(_activeSharingUserId))
+        .toList();
+
+    final privateVehicles = _sharingRole == DemoSharingRole.owner
+        ? _ownerVehicles
+        : _recipientVehicles;
+    final privateExpenses = _sharingRole == DemoSharingRole.owner
+        ? _ownerExpenses
+        : _recipientExpenses;
+    final privateReminders = _sharingRole == DemoSharingRole.owner
+        ? _ownerReminders
+        : _recipientReminders;
+
+    _vehicles = <Vehicle>[
+      ...privateVehicles,
+      ...visiblePackages.map((package) => package.vehicle),
+    ];
+    _expenses = <CarExpense>[
+      ...privateExpenses,
+      ...visiblePackages.expand((package) => package.expenses),
+    ]..sort((a, b) => b.date.compareTo(a.date));
+    _reminders = <MaintenanceReminder>[
+      ...privateReminders,
+      ...visiblePackages.expand((package) => package.reminders),
+    ];
+    _reminders.sort((a, b) {
+      final aDate = a.dueDate ?? DateTime(9999);
+      final bDate = b.dueDate ?? DateTime(9999);
+      return aDate.compareTo(bDate);
+    });
+  }
+
+  List<Vehicle> get _activePrivateVehicles =>
+      _sharingRole == DemoSharingRole.owner ? _ownerVehicles : _recipientVehicles;
+
+  List<CarExpense> get _activePrivateExpenses =>
+      _sharingRole == DemoSharingRole.owner ? _ownerExpenses : _recipientExpenses;
+
+  List<MaintenanceReminder> get _activePrivateReminders =>
+      _sharingRole == DemoSharingRole.owner ? _ownerReminders : _recipientReminders;
+
+  SharedVehiclePackage? _sharedPackageForVehicle(String vehicleId) {
+    for (final package in _sharedVehiclePackages) {
+      if (package.vehicle.id == vehicleId) {
+        return package;
+      }
+    }
+    return null;
+  }
+
+  String _generateInviteCode(Vehicle vehicle) {
+    final brand = vehicle.brand.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+    final shortBrand = brand.length <= 3 ? brand : brand.substring(0, 3);
+    final suffix = DateTime.now().millisecondsSinceEpoch
+        .toString()
+        .substring(7);
+    return '$shortBrand-$suffix';
+  }
+
+  SharedVehiclePackage? _ensureSharedPackageForVehicle(String vehicleId) {
+    final existing = _sharedPackageForVehicle(vehicleId);
+    if (existing != null) {
+      return existing;
+    }
+
+    final vehicleIndex = _ownerVehicles.indexWhere((vehicle) => vehicle.id == vehicleId);
+    if (vehicleIndex == -1) {
+      return null;
+    }
+
+    final vehicle = _ownerVehicles.removeAt(vehicleIndex);
+    final expenses = _ownerExpenses.where((expense) => expense.vehicleId == vehicleId).toList();
+    final reminders = _ownerReminders
+        .where((reminder) => reminder.vehicleId == vehicleId)
+        .toList();
+    _ownerExpenses.removeWhere((expense) => expense.vehicleId == vehicleId);
+    _ownerReminders.removeWhere((reminder) => reminder.vehicleId == vehicleId);
+
+    final package = SharedVehiclePackage(
+      vehicle: vehicle,
+      expenses: expenses,
+      reminders: reminders,
+      access: SharedVehicleAccess(
+        vehicleId: vehicle.id,
+        ownerUserId: _ownerSharingUserId,
+        ownerName: _ownerSharingName,
+        ownerEmail: _ownerSharingEmail,
+        memberUserIds: const <String>[],
+        inviteCode: _generateInviteCode(vehicle),
+      ),
+    );
+    _sharedVehiclePackages.add(package);
+    return package;
+  }
+
+  Future<_JoinSharedVehicleResult> _joinSharedVehicleByCode(String code) async {
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    final normalized = code.trim().toUpperCase();
+    if (normalized.isEmpty) {
+      return const _JoinSharedVehicleResult(
+        success: false,
+        message: 'Enter a valid shared code.',
+      );
+    }
+
+    for (final vehicleId in _ownerVehicles.map((vehicle) => vehicle.id).toList()) {
+      _ensureSharedPackageForVehicle(vehicleId);
+    }
+
+    final packageIndex = _sharedVehiclePackages.indexWhere(
+      (package) => package.access.inviteCode.toUpperCase() == normalized,
+    );
+    if (packageIndex == -1) {
+      return const _JoinSharedVehicleResult(
+        success: false,
+        message: 'That shared code is not valid.',
+      );
+    }
+
+    final package = _sharedVehiclePackages[packageIndex];
+    if (package.access.isOwner(_activeSharingUserId)) {
+      return const _JoinSharedVehicleResult(
+        success: false,
+        message: 'Switch to Recipient view to join this vehicle.',
+      );
+    }
+    if (package.access.memberUserIds.contains(_activeSharingUserId)) {
+      return _JoinSharedVehicleResult(
+        success: true,
+        message: 'Vehicle already added.',
+        vehicleId: package.vehicle.id,
+        ownerName: package.access.ownerName,
+        ownerEmail: package.access.ownerEmail,
+      );
+    }
+
+    setState(() {
+      _sharedVehiclePackages[packageIndex] = package.copyWith(
+        access: package.access.copyWith(
+          memberUserIds: <String>[
+            ...package.access.memberUserIds,
+            _activeSharingUserId,
+          ],
+        ),
+      );
+      _rebuildVisibleData();
+    });
+    await _saveSharingState();
+
+    return _JoinSharedVehicleResult(
+      success: true,
+      message: 'Vehicle added.',
+      vehicleId: package.vehicle.id,
+      ownerName: package.access.ownerName,
+      ownerEmail: package.access.ownerEmail,
+    );
+  }
+
+  Future<void> _revokeSharedVehicleAccess(String vehicleId, String memberUserId) async {
+    final index = _sharedVehiclePackages.indexWhere(
+      (package) => package.vehicle.id == vehicleId,
+    );
+    if (index == -1) {
+      return;
+    }
+
+    setState(() {
+      final package = _sharedVehiclePackages[index];
+      _sharedVehiclePackages[index] = package.copyWith(
+        access: package.access.copyWith(
+          memberUserIds: package.access.memberUserIds
+              .where((member) => member != memberUserId)
+              .toList(),
+        ),
+      );
+      _rebuildVisibleData();
+    });
+    await _saveSharingState();
+  }
+
+  Future<void> _transferSharedVehicleOwnership(String vehicleId) async {
+    final index = _sharedVehiclePackages.indexWhere(
+      (package) => package.vehicle.id == vehicleId,
+    );
+    if (index == -1) {
+      return;
+    }
+
+    setState(() {
+      final package = _sharedVehiclePackages[index];
+      final nextOwnerUserId = package.access.ownerUserId == _ownerSharingUserId
+          ? _recipientSharingUserId
+          : _ownerSharingUserId;
+      final nextOwnerName = nextOwnerUserId == _ownerSharingUserId
+          ? _ownerSharingName
+          : _recipientSharingName;
+      final nextOwnerEmail = nextOwnerUserId == _ownerSharingUserId
+          ? _ownerSharingEmail
+          : _recipientSharingEmail;
+      final nextMembers = <String>{
+        _ownerSharingUserId,
+        _recipientSharingUserId,
+      }..remove(nextOwnerUserId);
+      _sharedVehiclePackages[index] = package.copyWith(
+        access: package.access.copyWith(
+          ownerUserId: nextOwnerUserId,
+          ownerName: nextOwnerName,
+          ownerEmail: nextOwnerEmail,
+          memberUserIds: nextMembers.toList(),
+        ),
+      );
+      _rebuildVisibleData();
+    });
+    await _saveSharingState();
+  }
+
+  Future<String> _regenerateSharedVehicleCode(String vehicleId) async {
+    final index = _sharedVehiclePackages.indexWhere(
+      (package) => package.vehicle.id == vehicleId,
+    );
+    if (index == -1) {
+      return '';
+    }
+    late final String code;
+    setState(() {
+      final package = _sharedVehiclePackages[index];
+      code = _generateInviteCode(package.vehicle);
+      _sharedVehiclePackages[index] = package.copyWith(
+        access: package.access.copyWith(inviteCode: code),
+      );
+      _rebuildVisibleData();
+    });
+    await _saveSharingState();
+    return code;
   }
 
   Future<void> _loadInitialData({bool forceRefresh = false}) async {
@@ -605,11 +948,15 @@ class _HomeShellState extends State<HomeShell> {
         return;
       }
       setState(() {
-        _vehicles = List<Vehicle>.from(mockVehicles);
-        _expenses = const <CarExpense>[];
-        _reminders = const <MaintenanceReminder>[];
+        _ownerVehicles = List<Vehicle>.from(mockVehicles);
+        _ownerExpenses = <CarExpense>[];
+        _ownerReminders = <MaintenanceReminder>[];
+        _recipientVehicles = <Vehicle>[];
+        _recipientExpenses = <CarExpense>[];
+        _recipientReminders = <MaintenanceReminder>[];
         _presentationImportCompleted = false;
         _usingLocalData = true;
+        _rebuildVisibleData();
       });
       return;
     }
@@ -619,16 +966,20 @@ class _HomeShellState extends State<HomeShell> {
         return;
       }
       setState(() {
-        _vehicles = List<Vehicle>.from(mockVehicles);
-        _expenses =
+        _ownerVehicles = List<Vehicle>.from(mockVehicles);
+        _ownerExpenses =
             mockExpenses
                 .map(
                   (expense) => expense.copyWith(currency: ExpenseCurrency.mdl),
                 )
                 .toList()
               ..sort((a, b) => b.date.compareTo(a.date));
-        _reminders = buildMockReminders();
+        _ownerReminders = buildMockReminders();
+        _recipientVehicles = <Vehicle>[];
+        _recipientExpenses = <CarExpense>[];
+        _recipientReminders = <MaintenanceReminder>[];
         _usingLocalData = true;
+        _rebuildVisibleData();
       });
       return;
     }
@@ -638,12 +989,16 @@ class _HomeShellState extends State<HomeShell> {
         return;
       }
       setState(() {
-        _vehicles = List<Vehicle>.from(_cachedNonDemoSnapshot!.vehicles);
-        _expenses = List<CarExpense>.from(_cachedNonDemoSnapshot!.expenses);
-        _reminders = List<MaintenanceReminder>.from(
+        _ownerVehicles = List<Vehicle>.from(_cachedNonDemoSnapshot!.vehicles);
+        _ownerExpenses = List<CarExpense>.from(_cachedNonDemoSnapshot!.expenses);
+        _ownerReminders = List<MaintenanceReminder>.from(
           _cachedNonDemoSnapshot!.reminders,
         );
+        _recipientVehicles = <Vehicle>[];
+        _recipientExpenses = <CarExpense>[];
+        _recipientReminders = <MaintenanceReminder>[];
         _usingLocalData = _cachedNonDemoSnapshot!.isLocalOnly;
+        _rebuildVisibleData();
       });
       return;
     }
@@ -658,19 +1013,41 @@ class _HomeShellState extends State<HomeShell> {
 
     _cachedNonDemoSnapshot = snapshot;
     setState(() {
-      _vehicles = snapshot.vehicles;
-      _expenses = snapshot.expenses;
-      _reminders = snapshot.reminders;
+      _ownerVehicles = List<Vehicle>.from(snapshot.vehicles);
+      _ownerExpenses = List<CarExpense>.from(snapshot.expenses);
+      _ownerReminders = List<MaintenanceReminder>.from(snapshot.reminders);
+      _recipientVehicles = <Vehicle>[];
+      _recipientExpenses = <CarExpense>[];
+      _recipientReminders = <MaintenanceReminder>[];
       _usingLocalData = snapshot.isLocalOnly;
+      _rebuildVisibleData();
     });
   }
 
   void _addExpense(CarExpense expense) {
     Vehicle? updatedVehicle;
     setState(() {
-      _expenses.insert(0, expense);
-      updatedVehicle = _applyVehicleMileageFromExpense(expense);
+      final packageIndex = _sharedVehiclePackages.indexWhere(
+        (package) => package.vehicle.id == expense.vehicleId,
+      );
+      if (packageIndex != -1) {
+        final package = _sharedVehiclePackages[packageIndex];
+        final nextExpenses = <CarExpense>[expense, ...package.expenses]
+          ..sort((a, b) => b.date.compareTo(a.date));
+        final nextVehicle = expense.mileage > package.vehicle.mileage
+            ? package.vehicle.copyWith(mileage: expense.mileage)
+            : package.vehicle;
+        _sharedVehiclePackages[packageIndex] = package.copyWith(
+          vehicle: nextVehicle,
+          expenses: nextExpenses,
+        );
+      } else {
+        _activePrivateExpenses.add(expense);
+        updatedVehicle = _applyVehicleMileageFromExpense(expense);
+      }
+      _rebuildVisibleData();
     });
+    unawaited(_saveSharingState());
 
     if (!_demoModeEnabled) {
       unawaited(_syncExpense(expense));
@@ -683,15 +1060,39 @@ class _HomeShellState extends State<HomeShell> {
   void _updateExpense(CarExpense expense) {
     Vehicle? updatedVehicle;
     setState(() {
-      final index = _expenses.indexWhere((item) => item.id == expense.id);
-      if (index == -1) {
-        _expenses.insert(0, expense);
+      final packageIndex = _sharedVehiclePackages.indexWhere(
+        (package) => package.vehicle.id == expense.vehicleId,
+      );
+      if (packageIndex != -1) {
+        final package = _sharedVehiclePackages[packageIndex];
+        final nextExpenses = List<CarExpense>.from(package.expenses);
+        final index = nextExpenses.indexWhere((item) => item.id == expense.id);
+        if (index == -1) {
+          nextExpenses.insert(0, expense);
+        } else {
+          nextExpenses[index] = expense;
+        }
+        nextExpenses.sort((a, b) => b.date.compareTo(a.date));
+        final nextVehicle = expense.mileage > package.vehicle.mileage
+            ? package.vehicle.copyWith(mileage: expense.mileage)
+            : package.vehicle;
+        _sharedVehiclePackages[packageIndex] = package.copyWith(
+          vehicle: nextVehicle,
+          expenses: nextExpenses,
+        );
       } else {
-        _expenses[index] = expense;
+        final index = _activePrivateExpenses.indexWhere((item) => item.id == expense.id);
+        if (index == -1) {
+          _activePrivateExpenses.insert(0, expense);
+        } else {
+          _activePrivateExpenses[index] = expense;
+        }
+        _activePrivateExpenses.sort((a, b) => b.date.compareTo(a.date));
+        updatedVehicle = _applyVehicleMileageFromExpense(expense);
       }
-      _expenses.sort((a, b) => b.date.compareTo(a.date));
-      updatedVehicle = _applyVehicleMileageFromExpense(expense);
+      _rebuildVisibleData();
     });
+    unawaited(_saveSharingState());
 
     if (!_demoModeEnabled) {
       unawaited(_syncExpense(expense));
@@ -703,8 +1104,23 @@ class _HomeShellState extends State<HomeShell> {
 
   void _deleteExpense(String expenseId) {
     setState(() {
-      _expenses.removeWhere((item) => item.id == expenseId);
+      var removed = false;
+      for (var i = 0; i < _sharedVehiclePackages.length; i++) {
+        final package = _sharedVehiclePackages[i];
+        final nextExpenses =
+            package.expenses.where((item) => item.id != expenseId).toList();
+        if (nextExpenses.length != package.expenses.length) {
+          _sharedVehiclePackages[i] = package.copyWith(expenses: nextExpenses);
+          removed = true;
+          break;
+        }
+      }
+      if (!removed) {
+        _activePrivateExpenses.removeWhere((item) => item.id == expenseId);
+      }
+      _rebuildVisibleData();
     });
+    unawaited(_saveSharingState());
 
     if (!_demoModeEnabled) {
       unawaited(_syncDeleteExpense(expenseId));
@@ -714,8 +1130,18 @@ class _HomeShellState extends State<HomeShell> {
   void _bulkDeleteExpenses(List<String> expenseIds) {
     final ids = expenseIds.toSet();
     setState(() {
-      _expenses.removeWhere((item) => ids.contains(item.id));
+      for (var i = 0; i < _sharedVehiclePackages.length; i++) {
+        final package = _sharedVehiclePackages[i];
+        _sharedVehiclePackages[i] = package.copyWith(
+          expenses: package.expenses
+              .where((item) => !ids.contains(item.id))
+              .toList(),
+        );
+      }
+      _activePrivateExpenses.removeWhere((item) => ids.contains(item.id));
+      _rebuildVisibleData();
     });
+    unawaited(_saveSharingState());
 
     if (!_demoModeEnabled) {
       for (final expenseId in ids) {
@@ -774,27 +1200,30 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   Vehicle? _applyVehicleMileageFromExpense(CarExpense expense) {
-    final vehicleIndex = _vehicles.indexWhere(
+    final privateVehicles = _activePrivateVehicles;
+    final vehicleIndex = privateVehicles.indexWhere(
       (vehicle) => vehicle.id == expense.vehicleId,
     );
     if (vehicleIndex == -1) {
       return null;
     }
 
-    final existingVehicle = _vehicles[vehicleIndex];
+    final existingVehicle = privateVehicles[vehicleIndex];
     if (expense.mileage <= existingVehicle.mileage) {
       return null;
     }
 
     final updatedVehicle = existingVehicle.copyWith(mileage: expense.mileage);
-    _vehicles[vehicleIndex] = updatedVehicle;
+    privateVehicles[vehicleIndex] = updatedVehicle;
     return updatedVehicle;
   }
 
   void _addVehicle(Vehicle vehicle) {
     setState(() {
-      _vehicles.add(vehicle);
+      _activePrivateVehicles.add(vehicle);
+      _rebuildVisibleData();
     });
+    unawaited(_saveSharingState());
 
     if (!_demoModeEnabled) {
       unawaited(_syncVehicle(vehicle));
@@ -803,13 +1232,23 @@ class _HomeShellState extends State<HomeShell> {
 
   void _updateVehicle(Vehicle vehicle) {
     setState(() {
-      final index = _vehicles.indexWhere((item) => item.id == vehicle.id);
-      if (index == -1) {
-        _vehicles.add(vehicle);
+      final packageIndex = _sharedVehiclePackages.indexWhere(
+        (package) => package.vehicle.id == vehicle.id,
+      );
+      if (packageIndex != -1) {
+        _sharedVehiclePackages[packageIndex] = _sharedVehiclePackages[packageIndex]
+            .copyWith(vehicle: vehicle);
       } else {
-        _vehicles[index] = vehicle;
+        final index = _activePrivateVehicles.indexWhere((item) => item.id == vehicle.id);
+        if (index == -1) {
+          _activePrivateVehicles.add(vehicle);
+        } else {
+          _activePrivateVehicles[index] = vehicle;
+        }
       }
+      _rebuildVisibleData();
     });
+    unawaited(_saveSharingState());
 
     if (!_demoModeEnabled) {
       unawaited(_syncVehicle(vehicle));
@@ -817,13 +1256,18 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   Future<void> _deleteVehicle(String vehicleId) async {
+    final isSharedVehicle = _sharedVehiclePackages.any(
+      (package) => package.vehicle.id == vehicleId,
+    );
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: const Text('Delete vehicle?'),
-          content: const Text(
-            'This removes the vehicle and all related expenses/reminders.',
+          content: Text(
+            isSharedVehicle
+                ? 'This removes the shared vehicle and all related expenses/reminders.'
+                : 'This removes the vehicle and all related expenses/reminders.',
           ),
           actions: [
             TextButton(
@@ -844,10 +1288,20 @@ class _HomeShellState extends State<HomeShell> {
     }
 
     setState(() {
-      _vehicles.removeWhere((vehicle) => vehicle.id == vehicleId);
-      _expenses.removeWhere((expense) => expense.vehicleId == vehicleId);
-      _reminders.removeWhere((reminder) => reminder.vehicleId == vehicleId);
+      _sharedVehiclePackages.removeWhere(
+        (package) => package.vehicle.id == vehicleId,
+      );
+      _ownerVehicles.removeWhere((vehicle) => vehicle.id == vehicleId);
+      _ownerExpenses.removeWhere((expense) => expense.vehicleId == vehicleId);
+      _ownerReminders.removeWhere((reminder) => reminder.vehicleId == vehicleId);
+      _recipientVehicles.removeWhere((vehicle) => vehicle.id == vehicleId);
+      _recipientExpenses.removeWhere((expense) => expense.vehicleId == vehicleId);
+      _recipientReminders.removeWhere(
+        (reminder) => reminder.vehicleId == vehicleId,
+      );
+      _rebuildVisibleData();
     });
+    unawaited(_saveSharingState());
 
     if (!_demoModeEnabled) {
       try {
@@ -900,12 +1354,130 @@ class _HomeShellState extends State<HomeShell> {
   }
 
   Future<void> _openAddVehicleFlow() async {
-    final newVehicle = await Navigator.of(context).push<Vehicle>(
-      MaterialPageRoute(builder: (context) => const AddVehicleScreen()),
-    );
-    if (newVehicle != null) {
-      _addVehicle(newVehicle);
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final mode = await _showVehicleAddModeSheet();
+    if (mode == null || !mounted) {
+      return;
     }
+
+    if (mode == _VehicleAddMode.normal) {
+      final newVehicle = await navigator.push<Vehicle>(
+        MaterialPageRoute(builder: (context) => const AddVehicleScreen()),
+      );
+      if (newVehicle != null) {
+        _addVehicle(newVehicle);
+      }
+      return;
+    }
+
+    final joinResult = await navigator.push<_JoinSharedVehicleResult>(
+      MaterialPageRoute(
+        builder: (context) => JoinSharedVehicleScreen(
+          onSubmitCode: _joinSharedVehicleByCode,
+        ),
+      ),
+    );
+    if (joinResult == null || !joinResult.success || !mounted) {
+      return;
+    }
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          'Vehicle added. Shared with you by ${joinResult.ownerName} (${joinResult.ownerEmail}).',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openVehicleSharingManagement(String vehicleId) async {
+    final package = _sharedPackageForVehicle(vehicleId) ??
+        _ensureSharedPackageForVehicle(vehicleId);
+    if (package == null || !mounted) {
+      return;
+    }
+
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (context) => VehicleSharingManagementScreen(
+          vehicle: package.vehicle,
+          access: package.access,
+          activeUserId: _activeSharingUserId,
+          memberLabels: {
+            _ownerSharingUserId: '$_ownerSharingName ($_ownerSharingEmail)',
+            _recipientSharingUserId:
+                '$_recipientSharingName ($_recipientSharingEmail)',
+            _shareMemberStelaId: _shareMemberStelaLabel,
+            _shareMemberMihaiId: _shareMemberMihaiLabel,
+            _shareMemberAnatolieId: _shareMemberAnatolieLabel,
+          },
+          onRevokeAccess: (memberUserId) =>
+              _revokeSharedVehicleAccess(vehicleId, memberUserId),
+          onTransferOwnership: () => _transferSharedVehicleOwnership(vehicleId),
+          onRegenerateCode: () => _regenerateSharedVehicleCode(vehicleId),
+        ),
+      ),
+    );
+  }
+
+  Future<_VehicleAddMode?> _showVehicleAddModeSheet() {
+    return showModalBottomSheet<_VehicleAddMode>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Choose vehicle mode',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Add your own vehicle or join one shared with you.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    side: BorderSide(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                  leading: const Icon(LucideIcons.car),
+                  title: const Text('Add vehicle'),
+                  subtitle: const Text('Create a vehicle in the normal way.'),
+                  trailing: const Icon(LucideIcons.chevronRight),
+                  onTap: () => Navigator.of(context).pop(_VehicleAddMode.normal),
+                ),
+                const SizedBox(height: 8),
+                ListTile(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    side: BorderSide(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                  leading: const Icon(LucideIcons.link2),
+                  title: const Text('Join with code'),
+                  subtitle: const Text(
+                    'Add a vehicle through a shared code from another member.',
+                  ),
+                  trailing: const Icon(LucideIcons.chevronRight),
+                  onTap: () => Navigator.of(context).pop(_VehicleAddMode.join),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _openEditVehicleFlow(Vehicle vehicle) async {
@@ -967,13 +1539,32 @@ class _HomeShellState extends State<HomeShell> {
 
   void _upsertReminder(MaintenanceReminder reminder) {
     setState(() {
-      final index = _reminders.indexWhere((item) => item.id == reminder.id);
-      if (index == -1) {
-        _reminders.add(reminder);
+      final packageIndex = _sharedVehiclePackages.indexWhere(
+        (package) => package.vehicle.id == reminder.vehicleId,
+      );
+      if (packageIndex != -1) {
+        final package = _sharedVehiclePackages[packageIndex];
+        final nextReminders = List<MaintenanceReminder>.from(package.reminders);
+        final index = nextReminders.indexWhere((item) => item.id == reminder.id);
+        if (index == -1) {
+          nextReminders.add(reminder);
+        } else {
+          nextReminders[index] = reminder;
+        }
+        _sharedVehiclePackages[packageIndex] = package.copyWith(
+          reminders: nextReminders,
+        );
       } else {
-        _reminders[index] = reminder;
+        final index = _activePrivateReminders.indexWhere((item) => item.id == reminder.id);
+        if (index == -1) {
+          _activePrivateReminders.add(reminder);
+        } else {
+          _activePrivateReminders[index] = reminder;
+        }
       }
+      _rebuildVisibleData();
     });
+    unawaited(_saveSharingState());
 
     if (!_demoModeEnabled) {
       unawaited(_syncReminder(reminder));
@@ -982,8 +1573,24 @@ class _HomeShellState extends State<HomeShell> {
 
   void _deleteReminder(String reminderId) {
     setState(() {
-      _reminders.removeWhere((item) => item.id == reminderId);
+      var removed = false;
+      for (var i = 0; i < _sharedVehiclePackages.length; i++) {
+        final package = _sharedVehiclePackages[i];
+        final nextReminders = package.reminders
+            .where((item) => item.id != reminderId)
+            .toList();
+        if (nextReminders.length != package.reminders.length) {
+          _sharedVehiclePackages[i] = package.copyWith(reminders: nextReminders);
+          removed = true;
+          break;
+        }
+      }
+      if (!removed) {
+        _activePrivateReminders.removeWhere((item) => item.id == reminderId);
+      }
+      _rebuildVisibleData();
     });
+    unawaited(_saveSharingState());
 
     if (!_demoModeEnabled) {
       unawaited(_syncDeleteReminder(reminderId));
@@ -1149,6 +1756,10 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
+    final sharedAccessByVehicleId = <String, SharedVehicleAccess>{
+      for (final package in _sharedVehiclePackages)
+        package.vehicle.id: package.access,
+    };
     final pages = <Widget>[
       DashboardScreen(
         vehicles: _vehicles,
@@ -1171,6 +1782,9 @@ class _HomeShellState extends State<HomeShell> {
         expenses: _expenses,
         reminders: _reminders,
         demoModeEnabled: _demoModeEnabled,
+        activeSharingRole: _sharingRole,
+        activeSharingUserId: _activeSharingUserId,
+        sharedAccessByVehicleId: sharedAccessByVehicleId,
         onAddVehicle: _openAddVehicleFlow,
         onEditVehicle: _openEditVehicleFlow,
         onDeleteVehicle: (vehicleId) => unawaited(_deleteVehicle(vehicleId)),
@@ -1180,6 +1794,7 @@ class _HomeShellState extends State<HomeShell> {
         onEditExpense: _openEditExpenseFlow,
         onDeleteExpense: _deleteExpense,
         onUpdateVehicleMileage: _updateVehicle,
+        onManageSharing: _openVehicleSharingManagement,
       ),
       ProfileScreen(
         user: widget.currentUser,
@@ -1310,4 +1925,22 @@ List<CarExpense> _buildPresentationImportExpenses({
 
   generated.sort((a, b) => b.date.compareTo(a.date));
   return generated;
+}
+
+enum _VehicleAddMode { normal, join }
+
+class _JoinSharedVehicleResult {
+  const _JoinSharedVehicleResult({
+    required this.success,
+    required this.message,
+    this.vehicleId,
+    this.ownerName,
+    this.ownerEmail,
+  });
+
+  final bool success;
+  final String message;
+  final String? vehicleId;
+  final String? ownerName;
+  final String? ownerEmail;
 }

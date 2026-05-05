@@ -587,6 +587,143 @@ class MockAuthUser {
   }
 }
 
+enum DemoSharingRole { owner, recipient }
+
+String demoSharingRoleLabel(DemoSharingRole role) {
+  switch (role) {
+    case DemoSharingRole.owner:
+      return 'Owner view';
+    case DemoSharingRole.recipient:
+      return 'Recipient view';
+  }
+}
+
+class SharedVehicleAccess {
+  const SharedVehicleAccess({
+    required this.vehicleId,
+    required this.ownerUserId,
+    required this.ownerName,
+    required this.ownerEmail,
+    required this.memberUserIds,
+    required this.inviteCode,
+  });
+
+  final String vehicleId;
+  final String ownerUserId;
+  final String ownerName;
+  final String ownerEmail;
+  final List<String> memberUserIds;
+  final String inviteCode;
+
+  bool isOwner(String userId) => ownerUserId == userId;
+
+  bool hasAccess(String userId) => isOwner(userId) || memberUserIds.contains(userId);
+
+  SharedVehicleAccess copyWith({
+    String? vehicleId,
+    String? ownerUserId,
+    String? ownerName,
+    String? ownerEmail,
+    List<String>? memberUserIds,
+    String? inviteCode,
+  }) {
+    return SharedVehicleAccess(
+      vehicleId: vehicleId ?? this.vehicleId,
+      ownerUserId: ownerUserId ?? this.ownerUserId,
+      ownerName: ownerName ?? this.ownerName,
+      ownerEmail: ownerEmail ?? this.ownerEmail,
+      memberUserIds: memberUserIds ?? this.memberUserIds,
+      inviteCode: inviteCode ?? this.inviteCode,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'vehicleId': vehicleId,
+      'ownerUserId': ownerUserId,
+      'ownerName': ownerName,
+      'ownerEmail': ownerEmail,
+      'memberUserIds': memberUserIds,
+      'inviteCode': inviteCode,
+    };
+  }
+
+  factory SharedVehicleAccess.fromMap(Map<String, dynamic> map) {
+    return SharedVehicleAccess(
+      vehicleId: (map['vehicleId'] as String?)?.trim() ?? '',
+      ownerUserId: (map['ownerUserId'] as String?)?.trim() ?? '',
+      ownerName: (map['ownerName'] as String?)?.trim() ?? 'Owner',
+      ownerEmail: (map['ownerEmail'] as String?)?.trim() ?? 'owner@carlog.app',
+      memberUserIds: (map['memberUserIds'] as List<dynamic>? ?? const [])
+          .map((item) => item.toString())
+          .toList(),
+      inviteCode: (map['inviteCode'] as String?)?.trim() ?? '',
+    );
+  }
+}
+
+class SharedVehiclePackage {
+  const SharedVehiclePackage({
+    required this.vehicle,
+    required this.expenses,
+    required this.reminders,
+    required this.access,
+  });
+
+  final Vehicle vehicle;
+  final List<CarExpense> expenses;
+  final List<MaintenanceReminder> reminders;
+  final SharedVehicleAccess access;
+
+  SharedVehiclePackage copyWith({
+    Vehicle? vehicle,
+    List<CarExpense>? expenses,
+    List<MaintenanceReminder>? reminders,
+    SharedVehicleAccess? access,
+  }) {
+    return SharedVehiclePackage(
+      vehicle: vehicle ?? this.vehicle,
+      expenses: expenses ?? this.expenses,
+      reminders: reminders ?? this.reminders,
+      access: access ?? this.access,
+    );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'vehicle': vehicle.toMap(),
+      'expenses': expenses.map((expense) => expense.toMap()).toList(),
+      'reminders': reminders.map((reminder) => reminder.toMap()).toList(),
+      'access': access.toMap(),
+    };
+  }
+
+  factory SharedVehiclePackage.fromMap(Map<String, dynamic> map) {
+    return SharedVehiclePackage(
+      vehicle: Vehicle.fromMap(
+        Map<String, dynamic>.from(map['vehicle'] as Map<dynamic, dynamic>),
+      ),
+      expenses: (map['expenses'] as List<dynamic>? ?? const [])
+          .map(
+            (expense) => CarExpense.fromMap(
+              Map<String, dynamic>.from(expense as Map<dynamic, dynamic>),
+            ),
+          )
+          .toList(),
+      reminders: (map['reminders'] as List<dynamic>? ?? const [])
+          .map(
+            (reminder) => MaintenanceReminder.fromMap(
+              Map<String, dynamic>.from(reminder as Map<dynamic, dynamic>),
+            ),
+          )
+          .toList(),
+      access: SharedVehicleAccess.fromMap(
+        Map<String, dynamic>.from(map['access'] as Map<dynamic, dynamic>),
+      ),
+    );
+  }
+}
+
 int _intFrom(Object? value, {int fallback = 0}) {
   if (value is int) return value;
   if (value is num) return value.toInt();

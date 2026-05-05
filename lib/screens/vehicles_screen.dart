@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../widgets/spark_top_bar.dart';
 
@@ -14,6 +15,9 @@ class VehiclesScreen extends StatelessWidget {
     required this.expenses,
     required this.reminders,
     required this.demoModeEnabled,
+    required this.activeSharingRole,
+    required this.activeSharingUserId,
+    required this.sharedAccessByVehicleId,
     required this.onAddVehicle,
     required this.onEditVehicle,
     required this.onDeleteVehicle,
@@ -23,12 +27,16 @@ class VehiclesScreen extends StatelessWidget {
     required this.onEditExpense,
     required this.onDeleteExpense,
     required this.onUpdateVehicleMileage,
+    required this.onManageSharing,
   });
 
   final List<Vehicle> vehicles;
   final List<CarExpense> expenses;
   final List<MaintenanceReminder> reminders;
   final bool demoModeEnabled;
+  final DemoSharingRole activeSharingRole;
+  final String activeSharingUserId;
+  final Map<String, SharedVehicleAccess> sharedAccessByVehicleId;
   final VoidCallback onAddVehicle;
   final ValueChanged<Vehicle> onEditVehicle;
   final ValueChanged<String> onDeleteVehicle;
@@ -38,6 +46,7 @@ class VehiclesScreen extends StatelessWidget {
   final ValueChanged<CarExpense> onEditExpense;
   final ValueChanged<String> onDeleteExpense;
   final ValueChanged<Vehicle> onUpdateVehicleMileage;
+  final ValueChanged<String> onManageSharing;
 
   @override
   Widget build(BuildContext context) {
@@ -69,6 +78,9 @@ class VehiclesScreen extends StatelessWidget {
                           expenses: expenses,
                           reminders: reminders,
                           demoModeEnabled: demoModeEnabled,
+                          activeSharingRole: activeSharingRole,
+                          activeSharingUserId: activeSharingUserId,
+                          sharedAccess: sharedAccessByVehicleId[vehicle.id],
                           onEditVehicle: onEditVehicle,
                           onDeleteVehicle: onDeleteVehicle,
                           onAddReminder: onAddReminder,
@@ -77,6 +89,7 @@ class VehiclesScreen extends StatelessWidget {
                           onEditExpense: onEditExpense,
                           onDeleteExpense: onDeleteExpense,
                           onUpdateVehicleMileage: onUpdateVehicleMileage,
+                          onManageSharing: onManageSharing,
                         ),
                       ),
                     );
@@ -157,6 +170,76 @@ class _InfoChip extends StatelessWidget {
   }
 }
 
+class _SharedOwnerBanner extends StatelessWidget {
+  const _SharedOwnerBanner({required this.access});
+
+  final SharedVehicleAccess access;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.primaryContainer.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(LucideIcons.users, color: scheme.primary, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'This vehicle is shared with you by ${access.ownerName} (${access.ownerEmail}).',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DemoVehicleOwnerBanner extends StatelessWidget {
+  const _DemoVehicleOwnerBanner({
+    required this.ownerName,
+    required this.ownerEmail,
+  });
+
+  final String ownerName;
+  final String ownerEmail;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: scheme.secondaryContainer.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(LucideIcons.userCheck, color: scheme.secondary, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'This vehicle is owned by $ownerName ($ownerEmail).',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class VehicleDetailScreen extends StatefulWidget {
   const VehicleDetailScreen({
     super.key,
@@ -164,6 +247,9 @@ class VehicleDetailScreen extends StatefulWidget {
     required this.expenses,
     required this.reminders,
     required this.demoModeEnabled,
+    required this.activeSharingRole,
+    required this.activeSharingUserId,
+    required this.sharedAccess,
     required this.onEditVehicle,
     required this.onDeleteVehicle,
     required this.onAddReminder,
@@ -172,12 +258,16 @@ class VehicleDetailScreen extends StatefulWidget {
     required this.onEditExpense,
     required this.onDeleteExpense,
     required this.onUpdateVehicleMileage,
+    required this.onManageSharing,
   });
 
   final Vehicle vehicle;
   final List<CarExpense> expenses;
   final List<MaintenanceReminder> reminders;
   final bool demoModeEnabled;
+  final DemoSharingRole activeSharingRole;
+  final String activeSharingUserId;
+  final SharedVehicleAccess? sharedAccess;
   final ValueChanged<Vehicle> onEditVehicle;
   final ValueChanged<String> onDeleteVehicle;
   final ValueChanged<String> onAddReminder;
@@ -186,6 +276,7 @@ class VehicleDetailScreen extends StatefulWidget {
   final ValueChanged<CarExpense> onEditExpense;
   final ValueChanged<String> onDeleteExpense;
   final ValueChanged<Vehicle> onUpdateVehicleMileage;
+  final ValueChanged<String> onManageSharing;
 
   @override
   State<VehicleDetailScreen> createState() => _VehicleDetailScreenState();
@@ -202,6 +293,13 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final canManageVehicle =
+        widget.sharedAccess == null ||
+        widget.sharedAccess!.isOwner(widget.activeSharingUserId);
+    final showManageSharing =
+        widget.demoModeEnabled &&
+        widget.activeSharingRole == DemoSharingRole.owner &&
+        canManageVehicle;
     final vehicleExpenses = widget.expenses
         .where((e) => e.vehicleId == _vehicle.id)
         .toList();
@@ -228,7 +326,9 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
             tooltip: 'Vehicle actions',
             onSelected: (value) {
               final navigator = Navigator.of(context);
-              if (value == 'edit') {
+              if (value == 'sharing') {
+                widget.onManageSharing(_vehicle.id);
+              } else if (value == 'edit') {
                 widget.onEditVehicle(_vehicle);
               } else if (value == 'update_mileage') {
                 final rootContext = navigator.context;
@@ -246,23 +346,33 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                 });
               }
             },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'edit', child: Text('Edit')),
-              PopupMenuItem(
-                value: 'update_mileage',
-                child: Text('Update mileage'),
-              ),
-              PopupMenuItem(value: 'delete', child: Text('Delete')),
+            itemBuilder: (context) => [
+              if (showManageSharing)
+                const PopupMenuItem(
+                  value: 'sharing',
+                  child: Text('Manage sharing'),
+                ),
+              if (canManageVehicle)
+                const PopupMenuItem(value: 'edit', child: Text('Edit')),
+              if (canManageVehicle)
+                const PopupMenuItem(
+                  value: 'update_mileage',
+                  child: Text('Update mileage'),
+                ),
+              if (canManageVehicle)
+                const PopupMenuItem(value: 'delete', child: Text('Delete')),
             ],
             icon: const Icon(LucideIcons.moreVertical),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => widget.onAddReminder(_vehicle.id),
-        icon: const Icon(LucideIcons.bellPlus),
-        label: const Text('Add reminder'),
-      ),
+      floatingActionButton: canManageVehicle
+          ? FloatingActionButton.extended(
+              onPressed: () => widget.onAddReminder(_vehicle.id),
+              icon: const Icon(LucideIcons.bellPlus),
+              label: const Text('Add reminder'),
+            )
+          : null,
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Column(
@@ -314,6 +424,24 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                 ),
               ),
             ),
+            if (widget.sharedAccess != null &&
+                !widget.sharedAccess!.isOwner(widget.activeSharingUserId)) ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _SharedOwnerBanner(access: widget.sharedAccess!),
+              ),
+            ] else if (widget.demoModeEnabled &&
+                _isDemoExternallyOwnedVehicle(_vehicle)) ...[
+              const SizedBox(height: 12),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: _DemoVehicleOwnerBanner(
+                  ownerName: 'Stela Zadnipro',
+                  ownerEmail: 'stela.zadnipro@gmail.com',
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             if (widget.demoModeEnabled) ...[
               Padding(
@@ -589,6 +717,11 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
       ],
     );
   }
+
+  bool _isDemoExternallyOwnedVehicle(Vehicle vehicle) {
+    return vehicle.brand.toLowerCase() == 'porsche' &&
+        vehicle.model.toLowerCase() == 'cayenne';
+  }
 }
 
 class _VehicleAiInsight {
@@ -596,6 +729,384 @@ class _VehicleAiInsight {
 
   final String summary;
   final List<String> bullets;
+}
+
+class JoinSharedVehicleScreen extends StatefulWidget {
+  const JoinSharedVehicleScreen({super.key, required this.onSubmitCode});
+
+  final Future<dynamic> Function(String code) onSubmitCode;
+
+  @override
+  State<JoinSharedVehicleScreen> createState() => _JoinSharedVehicleScreenState();
+}
+
+class _JoinSharedVehicleScreenState extends State<JoinSharedVehicleScreen> {
+  final TextEditingController _controller = TextEditingController();
+  bool _isLoading = false;
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    setState(() {
+      _isLoading = true;
+      _errorText = null;
+    });
+    final result = await widget.onSubmitCode(_controller.text.trim());
+    if (!mounted) {
+      return;
+    }
+    setState(() => _isLoading = false);
+    if (result == null) {
+      setState(() => _errorText = 'Could not join this vehicle.');
+      return;
+    }
+    final success = result.success == true;
+    if (success) {
+      Navigator.of(context).pop(result);
+      return;
+    }
+    setState(() {
+      _errorText = (result.message as String?) ?? 'Could not join this vehicle.';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: const SparkTopBar(title: Text('Join with code')),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Enter a shared vehicle code',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Use the code provided by the vehicle owner to sync the car, expenses, and reminders into your account.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _controller,
+                textCapitalization: TextCapitalization.characters,
+                decoration: InputDecoration(
+                  labelText: 'Shared code',
+                  hintText: 'PASSAT-A1B2',
+                  errorText: _errorText,
+                ),
+                onSubmitted: (_) => _isLoading ? null : _submit(),
+              ),
+              const Spacer(),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _isLoading ? null : _submit,
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Join vehicle'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class VehicleSharingManagementScreen extends StatefulWidget {
+  const VehicleSharingManagementScreen({
+    super.key,
+    required this.vehicle,
+    required this.access,
+    required this.activeUserId,
+    required this.memberLabels,
+    required this.onRevokeAccess,
+    required this.onTransferOwnership,
+    required this.onRegenerateCode,
+  });
+
+  final Vehicle vehicle;
+  final SharedVehicleAccess access;
+  final String activeUserId;
+  final Map<String, String> memberLabels;
+  final Future<void> Function(String memberUserId) onRevokeAccess;
+  final Future<void> Function() onTransferOwnership;
+  final Future<String> Function() onRegenerateCode;
+
+  @override
+  State<VehicleSharingManagementScreen> createState() =>
+      _VehicleSharingManagementScreenState();
+}
+
+class _VehicleSharingManagementScreenState
+    extends State<VehicleSharingManagementScreen> {
+  late SharedVehicleAccess _access;
+  late List<String> _demoMemberIds;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _access = widget.access;
+    _demoMemberIds = const [
+      'share_member_stela',
+      'share_member_mihai',
+      'share_member_anatolie',
+    ];
+  }
+
+  Future<void> _runBusy(Future<void> Function() action) async {
+    setState(() => _busy = true);
+    await action();
+    if (!mounted) {
+      return;
+    }
+    setState(() => _busy = false);
+  }
+
+  Future<void> _handleRevoke(String memberUserId) async {
+    await _runBusy(() async {
+      if (_access.memberUserIds.contains(memberUserId)) {
+        await widget.onRevokeAccess(memberUserId);
+        _access = _access.copyWith(
+          memberUserIds: _access.memberUserIds
+              .where((member) => member != memberUserId)
+              .toList(),
+        );
+      }
+      _demoMemberIds = _demoMemberIds
+          .where((member) => member != memberUserId)
+          .toList();
+    });
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Access to this shared vehicle was removed.')),
+    );
+  }
+
+  Future<void> _handleTransferOwnership() async {
+    await _runBusy(() async {
+      final nextOwnerId = _access.ownerUserId == 'demo_owner'
+          ? 'demo_recipient'
+          : 'demo_owner';
+      await widget.onTransferOwnership();
+      final nextMembers = <String>{'demo_owner', 'demo_recipient'}
+        ..remove(nextOwnerId);
+      _access = _access.copyWith(
+        ownerUserId: nextOwnerId,
+        ownerName: widget.memberLabels[nextOwnerId]?.split(' (').first ?? '',
+        ownerEmail: _extractEmail(widget.memberLabels[nextOwnerId] ?? ''),
+        memberUserIds: nextMembers.toList(),
+      );
+    });
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Vehicle ownership transferred.')),
+    );
+  }
+
+  Future<void> _handleRegenerateCode() async {
+    await _runBusy(() async {
+      final code = await widget.onRegenerateCode();
+      _access = _access.copyWith(inviteCode: code);
+    });
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('New shared code: ${_access.inviteCode}')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final memberIds = _demoMemberIds;
+    final muted = Theme.of(context).textTheme.bodySmall?.color;
+    return Scaffold(
+      appBar: const SparkTopBar(title: Text('Manage sharing')),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        children: [
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.vehicle.displayName,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Current share code',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
+                  const SizedBox(height: 6),
+                  SelectableText(
+                    _access.inviteCode,
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        await Clipboard.setData(
+                          ClipboardData(text: _access.inviteCode),
+                        );
+                        if (!context.mounted) {
+                          return;
+                        }
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Sharing code copied.'),
+                          ),
+                        );
+                      },
+                      icon: const Icon(LucideIcons.copy),
+                      label: const Text('Copy code'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _busy ? null : _handleRegenerateCode,
+                      icon: const Icon(LucideIcons.refreshCw),
+                      label: const Text('Regenerate code'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Members',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  if (memberIds.isEmpty)
+                    const Text('No members have joined this shared vehicle yet.')
+                  else
+                    ...memberIds.map((memberId) {
+                      final contact = _parseContact(
+                        widget.memberLabels[memberId] ?? memberId,
+                      );
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    contact.name,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    contact.email,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.copyWith(color: muted),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: _busy
+                                  ? null
+                                  : () => _handleRevoke(memberId),
+                              child: const Text('Revoke access'),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.tonalIcon(
+              onPressed: _busy ? null : _handleTransferOwnership,
+              icon: const Icon(LucideIcons.repeat2),
+              label: const Text('Transfer ownership'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _extractEmail(String label) {
+    return _parseContact(label).email;
+  }
+
+  _SharingContact _parseContact(String label) {
+    if (label.contains('|')) {
+      final parts = label.split('|');
+      return _SharingContact(
+        name: parts.first.trim(),
+        email: parts.length > 1 ? parts[1].trim() : '',
+      );
+    }
+    final match = RegExp(r'^(.*?)(?:\s*\(([^)]+)\))?$').firstMatch(label);
+    return _SharingContact(
+      name: match?.group(1)?.trim() ?? label,
+      email: match?.group(2)?.trim() ?? '',
+    );
+  }
+}
+
+class _SharingContact {
+  const _SharingContact({required this.name, required this.email});
+
+  final String name;
+  final String email;
 }
 
 class _VehicleAiOverviewCard extends StatelessWidget {
