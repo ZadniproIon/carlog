@@ -441,7 +441,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             decoration: const InputDecoration(labelText: 'Vehicle'),
             items: widget.vehicles
                 .map(
-                  (v) => DropdownMenuItem(value: v, child: Text(v.displayName)),
+                  (v) =>
+                      DropdownMenuItem(value: v, child: Text(v.displayLabel)),
                 )
                 .toList(),
             onChanged: (value) {

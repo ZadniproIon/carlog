@@ -59,7 +59,7 @@ class ExpenseListTile extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             '${expenseCategoryLabel(expense.category)} • '
-            '${vehicle?.displayName ?? 'Unknown vehicle'}',
+            '${vehicle?.displayLabel ?? 'Unknown vehicle'}',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           const SizedBox(height: 4),
@@ -147,7 +147,7 @@ class ExpenseListTile extends StatelessWidget {
                 ),
                 _DetailRow(
                   label: 'Vehicle',
-                  value: vehicle?.displayName ?? 'Unknown vehicle',
+                  value: vehicle?.displayLabel ?? 'Unknown vehicle',
                 ),
                 _DetailRow(label: 'Date', value: _formatDateFull(expense.date)),
                 _DetailRow(
@@ -330,3 +330,4 @@ class _CategoryPalette {
   final Color background;
   final Color foreground;
 }
+

@@ -33,6 +33,66 @@ final List<Vehicle> mockVehicles = [
   ),
 ];
 
+List<Vehicle> buildFleetScreenshotVehicles() {
+  return const [
+    Vehicle(
+      id: 'fleet_v1',
+      brand: 'Dacia',
+      model: 'Logan',
+      year: 2022,
+      engine: '1.0 ECO-G',
+      fuelType: VehicleFuelType.lpg,
+      vin: 'UU1L5220XNY100001',
+      mileage: 48210,
+      specialTag: 'KXT 481',
+    ),
+    Vehicle(
+      id: 'fleet_v2',
+      brand: 'Dacia',
+      model: 'Logan',
+      year: 2021,
+      engine: '1.0 TCe',
+      fuelType: VehicleFuelType.gasoline,
+      vin: 'UU1L5220XNY100002',
+      mileage: 56340,
+      specialTag: 'MDE 204',
+    ),
+    Vehicle(
+      id: 'fleet_v3',
+      brand: 'Dacia',
+      model: 'Logan',
+      year: 2023,
+      engine: '1.5 Blue dCi',
+      fuelType: VehicleFuelType.diesel,
+      vin: 'UU1L5220XNY100003',
+      mileage: 21980,
+      specialTag: 'RLA 917',
+    ),
+    Vehicle(
+      id: 'fleet_v4',
+      brand: 'Dacia',
+      model: 'Duster',
+      year: 2022,
+      engine: '1.3 TCe',
+      fuelType: VehicleFuelType.gasoline,
+      vin: 'UU1HJD405NY200004',
+      mileage: 39760,
+      specialTag: 'TGH 552',
+    ),
+    Vehicle(
+      id: 'fleet_v5',
+      brand: 'Dacia',
+      model: 'Duster',
+      year: 2024,
+      engine: '1.5 Blue dCi',
+      fuelType: VehicleFuelType.diesel,
+      vin: 'UU1HJD405NY200005',
+      mileage: 12640,
+      specialTag: 'VLP 308',
+    ),
+  ];
+}
+
 final List<CarExpense> mockExpenses = [
   // Last 6 months - Volkswagen Passat (v1)
   CarExpense(

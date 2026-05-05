@@ -27,6 +27,8 @@ class ProfileScreen extends StatefulWidget {
     required this.onDemoModeChanged,
     required this.showAnomalyDemoButtons,
     required this.onShowAnomalyDemoButtonsChanged,
+    required this.fleetScreenshotDemoModeEnabled,
+    required this.onFleetScreenshotDemoModeChanged,
     required this.presentationDemoModeEnabled,
     required this.onPresentationDemoModeChanged,
     required this.onResetPresentationDemo,
@@ -49,6 +51,8 @@ class ProfileScreen extends StatefulWidget {
   final ValueChanged<bool> onDemoModeChanged;
   final bool showAnomalyDemoButtons;
   final ValueChanged<bool> onShowAnomalyDemoButtonsChanged;
+  final bool fleetScreenshotDemoModeEnabled;
+  final ValueChanged<bool> onFleetScreenshotDemoModeChanged;
   final bool presentationDemoModeEnabled;
   final ValueChanged<bool> onPresentationDemoModeChanged;
   final Future<void> Function() onResetPresentationDemo;
@@ -192,6 +196,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 subtitle: 'Display anomaly detection triggers in Smart input',
                 value: widget.showAnomalyDemoButtons,
                 onChanged: widget.onShowAnomalyDemoButtonsChanged,
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const _SectionTitle('Fleet demo'),
+          const SizedBox(height: 8),
+          _MenuGroup(
+            children: [
+              _MenuSwitchItem(
+                icon: LucideIcons.tags,
+                label: 'Fleet screenshot mode',
+                subtitle:
+                    'Show similar Dacia vehicles with Moldovan plate tags.',
+                value: widget.fleetScreenshotDemoModeEnabled,
+                onChanged: widget.onFleetScreenshotDemoModeChanged,
               ),
             ],
           ),
@@ -835,7 +854,7 @@ class _ExportFlowScreenState extends State<_ExportFlowScreen> {
                       final selected = _vehicleIds.contains(vehicle.id);
                       return FilterChip(
                         selected: selected,
-                        label: Text(vehicle.displayName),
+                        label: Text(vehicle.displayLabel),
                         avatar: DemoBrandLogo(
                           brand: vehicle.brand,
                           demoModeEnabled: true,

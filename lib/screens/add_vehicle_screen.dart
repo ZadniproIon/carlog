@@ -20,6 +20,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   final _yearController = TextEditingController();
   final _engineController = TextEditingController();
   final _descriptionController = TextEditingController();
+  final _specialTagController = TextEditingController();
   final _vinController = TextEditingController();
   final _mileageController = TextEditingController();
   VehicleFuelType _fuelType = VehicleFuelType.gasoline;
@@ -32,6 +33,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     _yearController.dispose();
     _engineController.dispose();
     _descriptionController.dispose();
+    _specialTagController.dispose();
     _vinController.dispose();
     _mileageController.dispose();
     super.dispose();
@@ -48,6 +50,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
       _yearController.text = vehicle.year.toString();
       _engineController.text = vehicle.engine;
       _descriptionController.text = vehicle.description;
+      _specialTagController.text = vehicle.specialTag;
       _vinController.text = vehicle.vin;
       _mileageController.text = vehicle.mileage.toString();
       _fuelType = vehicle.fuelType;
@@ -123,6 +126,14 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                 decoration: const InputDecoration(
                   labelText: 'Description (optional)',
                   hintText: 'e.g. Oil changed 2,000 km ago. Winter tires new.',
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _specialTagController,
+                decoration: const InputDecoration(
+                  labelText: 'Special tag (optional)',
+                  hintText: 'e.g. Fleet 07, Pool Car 3, MD-AB-001',
                 ),
               ),
               const SizedBox(height: 12),
@@ -222,6 +233,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
           ? 'N/A'
           : _vinController.text.trim(),
       mileage: int.parse(_mileageController.text),
+      specialTag: _specialTagController.text.trim(),
     );
 
     Navigator.of(context).pop(vehicle);

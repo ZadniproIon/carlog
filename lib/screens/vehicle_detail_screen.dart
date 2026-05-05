@@ -50,7 +50,7 @@ class VehicleDetailScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: SparkTopBar(
-        title: Text('${vehicle.displayName} · ${vehicle.year}'),
+        title: Text('${vehicle.displayLabel} ï¿½ ${vehicle.year}'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -64,12 +64,12 @@ class VehicleDetailScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    vehicle.displayName,
+                    vehicle.displayLabel,
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '${vehicle.year} • ${vehicle.engine}',
+                    '${vehicle.year} ï¿½ ${vehicle.engine}',
                     style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],

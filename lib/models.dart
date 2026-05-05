@@ -325,6 +325,7 @@ class Vehicle {
     required this.vin,
     required this.mileage,
     this.description = '',
+    this.specialTag = '',
     this.fuelType = VehicleFuelType.gasoline,
     this.distanceUnit = DistanceUnit.km,
   });
@@ -337,10 +338,13 @@ class Vehicle {
   final String vin;
   final int mileage;
   final String description;
+  final String specialTag;
   final VehicleFuelType fuelType;
   final DistanceUnit distanceUnit;
 
   String get displayName => '$brand $model';
+  String get displayLabel =>
+      specialTag.trim().isEmpty ? displayName : '$displayName · $specialTag';
 
   Vehicle copyWith({
     String? id,
@@ -351,6 +355,7 @@ class Vehicle {
     String? vin,
     int? mileage,
     String? description,
+    String? specialTag,
     VehicleFuelType? fuelType,
     DistanceUnit? distanceUnit,
   }) {
@@ -363,6 +368,7 @@ class Vehicle {
       vin: vin ?? this.vin,
       mileage: mileage ?? this.mileage,
       description: description ?? this.description,
+      specialTag: specialTag ?? this.specialTag,
       fuelType: fuelType ?? this.fuelType,
       distanceUnit: distanceUnit ?? this.distanceUnit,
     );
@@ -378,6 +384,7 @@ class Vehicle {
       'vin': vin,
       'mileage': mileage,
       'description': description,
+      'specialTag': specialTag,
       'fuelType': fuelType.name,
       'distanceUnit': distanceUnit.name,
     };
@@ -395,6 +402,7 @@ class Vehicle {
       vin: (map['vin'] as String?)?.trim() ?? 'N/A',
       mileage: _intFrom(map['mileage']),
       description: (map['description'] as String?)?.trim() ?? '',
+      specialTag: (map['specialTag'] as String?)?.trim() ?? '',
       fuelType: vehicleFuelTypeFromKey(
         (map['fuelType'] ?? map['fuel'] ?? 'other').toString(),
         engineHint: (map['engine'] as String?)?.trim(),

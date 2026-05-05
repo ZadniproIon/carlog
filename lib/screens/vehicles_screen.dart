@@ -113,7 +113,7 @@ class VehiclesScreen extends StatelessWidget {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                vehicle.displayName,
+                                vehicle.displayLabel,
                                 style: Theme.of(context).textTheme.titleMedium,
                               ),
                               const Spacer(),
@@ -320,7 +320,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
 
     return Scaffold(
       appBar: SparkTopBar(
-        title: Text('${_vehicle.displayName} - ${_vehicle.year}'),
+        title: Text('${_vehicle.displayLabel} - ${_vehicle.year}'),
         actions: [
           PopupMenuButton<String>(
             tooltip: 'Vehicle actions',
@@ -401,7 +401,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              _vehicle.displayName,
+                              _vehicle.displayLabel,
                               style: Theme.of(context).textTheme.headlineSmall,
                             ),
                           ),
@@ -412,6 +412,18 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                         '${_vehicle.year} - ${_vehicle.engine}',
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
+                      if (_vehicle.specialTag.trim().isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            _InfoChip(
+                              label: _vehicle.specialTag,
+                              icon: LucideIcons.tag,
+                            ),
+                          ],
+                        ),
+                      ],
                       if (_vehicle.description.trim().isNotEmpty) ...[
                         const SizedBox(height: 8),
                         Text(
@@ -461,6 +473,8 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
                   children: [
                     _SpecRow(label: 'Year', value: '${_vehicle.year}'),
                     _SpecRow(label: 'Engine name', value: _vehicle.engine),
+                    if (_vehicle.specialTag.trim().isNotEmpty)
+                      _SpecRow(label: 'Special tag', value: _vehicle.specialTag),
                     _SpecRow(
                       label: 'Fuel type',
                       value: vehicleFuelTypeLabel(_vehicle.fuelType),

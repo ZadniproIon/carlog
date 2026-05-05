@@ -307,7 +307,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
               demoModeEnabled: true,
               size: 16,
             ),
-            label: Text(vehicle.displayName),
+            label: Text(vehicle.displayLabel),
             visualDensity: VisualDensity.compact,
           ),
         ),
@@ -397,7 +397,7 @@ class _ExpenseFiltersScreenState extends State<_ExpenseFiltersScreen> {
               final selected = _vehicleIds.contains(vehicle.id);
               return FilterChip(
                 selected: selected,
-                label: Text(vehicle.displayName),
+                label: Text(vehicle.displayLabel),
                 avatar: DemoBrandLogo(
                   brand: vehicle.brand,
                   demoModeEnabled: true,
@@ -615,7 +615,7 @@ class _ExpenseFilters {
     if (vehicleIds.isNotEmpty) {
       final selectedNames = vehicles
           .where((v) => vehicleIds.contains(v.id))
-          .map((v) => v.displayName)
+          .map((v) => v.displayLabel)
           .toList();
       if (selectedNames.length <= 2) {
         parts.add(selectedNames.join(', '));

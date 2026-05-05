@@ -471,6 +471,8 @@ class _HomeShellState extends State<HomeShell> {
       'show_anomaly_demo_buttons';
   static const String _presentationDemoModePrefKey =
       'presentation_demo_mode_enabled';
+  static const String _fleetScreenshotDemoModePrefKey =
+      'fleet_screenshot_demo_mode_enabled';
   static const String _presentationImportExpensePrefix =
       'presentation_import_';
   static const String _sharingRolePrefKey = 'demo_sharing_role';
@@ -506,6 +508,7 @@ class _HomeShellState extends State<HomeShell> {
   bool _demoModeEnabled = true;
   bool _showAnomalyDemoButtons = true;
   bool _presentationDemoModeEnabled = false;
+  bool _fleetScreenshotDemoModeEnabled = false;
   bool _presentationImportCompleted = false;
   DemoSharingRole _sharingRole = DemoSharingRole.owner;
   ExpenseCurrency _expenseCurrency = ExpenseCurrency.mdl;
@@ -540,12 +543,16 @@ class _HomeShellState extends State<HomeShell> {
     final storedPresentationDemoMode = prefs.getBool(
       _presentationDemoModePrefKey,
     );
+    final storedFleetScreenshotDemoMode = prefs.getBool(
+      _fleetScreenshotDemoModePrefKey,
+    );
     final storedSharingRole = prefs.getString(_sharingRolePrefKey);
     final storedSharedPackages = prefs.getString(_sharedVehiclePackagesPrefKey);
     if (!mounted || storedCurrency == null || storedCurrency.trim().isEmpty) {
       if (storedFuelCountry == null || storedFuelCountry.trim().isEmpty) {
         if (storedShowAnomalyDemoButtons == null &&
             storedPresentationDemoMode == null &&
+            storedFleetScreenshotDemoMode == null &&
             storedSharingRole == null &&
             storedSharedPackages == null) {
           return;
@@ -565,6 +572,9 @@ class _HomeShellState extends State<HomeShell> {
       }
       if (storedPresentationDemoMode != null) {
         _presentationDemoModeEnabled = storedPresentationDemoMode;
+      }
+      if (storedFleetScreenshotDemoMode != null) {
+        _fleetScreenshotDemoModeEnabled = storedFleetScreenshotDemoMode;
       }
       if (storedSharingRole == DemoSharingRole.recipient.name) {
         _sharingRole = DemoSharingRole.recipient;
@@ -657,6 +667,18 @@ class _HomeShellState extends State<HomeShell> {
     await _loadInitialData(forceRefresh: true);
   }
 
+  Future<void> _onFleetScreenshotDemoModeChanged(bool enabled) async {
+    if (_fleetScreenshotDemoModeEnabled == enabled) {
+      return;
+    }
+    setState(() {
+      _fleetScreenshotDemoModeEnabled = enabled;
+      _rebuildVisibleData();
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_fleetScreenshotDemoModePrefKey, enabled);
+  }
+
   Future<void> _resetPresentationDemo() async {
     if (!mounted) {
       return;
@@ -704,6 +726,13 @@ class _HomeShellState extends State<HomeShell> {
 
   void _rebuildVisibleData() {
     _removeSharedVehicleIdsFromPrivateData();
+
+    if (_fleetScreenshotDemoModeEnabled) {
+      _vehicles = buildFleetScreenshotVehicles();
+      _expenses = <CarExpense>[];
+      _reminders = <MaintenanceReminder>[];
+      return;
+    }
 
     final visiblePackages = _sharedVehiclePackages
         .where((package) => package.access.hasAccess(_activeSharingUserId))
@@ -1813,6 +1842,8 @@ class _HomeShellState extends State<HomeShell> {
         onUpdateProfile: widget.onUpdateProfile,
         showAnomalyDemoButtons: _showAnomalyDemoButtons,
         onShowAnomalyDemoButtonsChanged: _onShowAnomalyDemoButtonsChanged,
+        fleetScreenshotDemoModeEnabled: _fleetScreenshotDemoModeEnabled,
+        onFleetScreenshotDemoModeChanged: _onFleetScreenshotDemoModeChanged,
         presentationDemoModeEnabled: _presentationDemoModeEnabled,
         onPresentationDemoModeChanged: _onPresentationDemoModeChanged,
         onResetPresentationDemo: _resetPresentationDemo,

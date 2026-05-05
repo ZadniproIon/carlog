@@ -377,7 +377,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               demoModeEnabled: true,
               size: 16,
             ),
-            label: Text(vehicle.displayName),
+            label: Text(vehicle.displayLabel),
             visualDensity: VisualDensity.compact,
           ),
         ),
@@ -477,7 +477,7 @@ class _DashboardFiltersScreenState extends State<_DashboardFiltersScreen> {
               final selected = _vehicleIds.contains(vehicle.id);
               return FilterChip(
                 selected: selected,
-                label: Text(vehicle.displayName),
+                label: Text(vehicle.displayLabel),
                 avatar: DemoBrandLogo(
                   brand: vehicle.brand,
                   demoModeEnabled: true,
@@ -1325,7 +1325,7 @@ class _VehicleFuelEconomyRow extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                item.vehicle.displayName,
+                item.vehicle.displayLabel,
                 style: Theme.of(
                   context,
                 ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -1389,7 +1389,7 @@ class _VehicleSpendRow extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                item.vehicle.displayName,
+                item.vehicle.displayLabel,
                 style: Theme.of(
                   context,
                 ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -1487,7 +1487,7 @@ class _MaintenanceList extends StatelessWidget {
                     ),
                   ),
                   subtitle: Text(
-                    '${vehicle?.displayName ?? 'Vehicle'} - $dueInfo\n'
+                    '${vehicle?.displayLabel ?? 'Vehicle'} - $dueInfo\n'
                     '${reminder.description}',
                   ),
                   isThreeLine: true,
