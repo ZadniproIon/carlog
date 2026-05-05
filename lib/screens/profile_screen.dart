@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import '../widgets/demo_brand_logo.dart';
 import '../widgets/spark_top_bar.dart';
 
 import '../models.dart';
@@ -757,6 +758,10 @@ class _ExportFlowScreenState extends State<_ExportFlowScreen> {
   bool _includeVehicles = true;
   bool _includeExpenses = true;
   bool _includeReminders = true;
+  final Set<String> _vehicleIds = <String>{};
+  final Set<ExpenseCategory> _categories = <ExpenseCategory>{};
+  DateTime? _startDate;
+  DateTime? _endDate;
 
   @override
   Widget build(BuildContext context) {
@@ -819,6 +824,149 @@ class _ExportFlowScreenState extends State<_ExportFlowScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
+                  const _SectionTitle('Filters'),
+                  const SizedBox(height: 8),
+                  Text('Vehicles', style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: widget.vehicles.map((vehicle) {
+                      final selected = _vehicleIds.contains(vehicle.id);
+                      return FilterChip(
+                        selected: selected,
+                        label: Text(vehicle.displayName),
+                        avatar: DemoBrandLogo(
+                          brand: vehicle.brand,
+                          demoModeEnabled: true,
+                          size: 16,
+                        ),
+                        onSelected: (value) {
+                          setState(() {
+                            if (value) {
+                              _vehicleIds.add(vehicle.id);
+                            } else {
+                              _vehicleIds.remove(vehicle.id);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  Opacity(
+                    opacity: _includeExpenses ? 1 : 0.45,
+                    child: IgnorePointer(
+                      ignoring: !_includeExpenses,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Expense categories',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: ExpenseCategory.values.map((category) {
+                              final selected = _categories.contains(category);
+                              return FilterChip(
+                                selected: selected,
+                                label: Text(expenseCategoryLabel(category)),
+                                avatar: Icon(
+                                  expenseCategoryIcon(category),
+                                  size: 16,
+                                ),
+                                onSelected: (value) {
+                                  setState(() {
+                                    if (value) {
+                                      _categories.add(category);
+                                    } else {
+                                      _categories.remove(category);
+                                    }
+                                  });
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Date range',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _pickStartDate,
+                          icon: const Icon(LucideIcons.calendar, size: 16),
+                          label: Text(
+                            _startDate == null
+                                ? 'Start date'
+                                : _formatDate(_startDate!),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _pickEndDate,
+                          icon: const Icon(LucideIcons.calendar, size: 16),
+                          label: Text(
+                            _endDate == null
+                                ? 'End date'
+                                : _formatDate(_endDate!),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ActionChip(
+                        label: const Text('Last 30 days'),
+                        onPressed: () => _setLastDays(30),
+                      ),
+                      ActionChip(
+                        label: const Text('Last 90 days'),
+                        onPressed: () => _setLastDays(90),
+                      ),
+                      ActionChip(
+                        label: const Text('This year'),
+                        onPressed: _setThisYear,
+                      ),
+                      ActionChip(
+                        label: const Text('All time'),
+                        onPressed: () {
+                          setState(() {
+                            _startDate = null;
+                            _endDate = null;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _resetFilters,
+                          child: const Text('Reset filters'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
@@ -842,11 +990,98 @@ class _ExportFlowScreenState extends State<_ExportFlowScreen> {
       _includeVehicles || _includeExpenses || _includeReminders;
 
   void _startExport() {
+    final parts = <String>[];
+    if (_vehicleIds.isNotEmpty) {
+      parts.add(
+        _vehicleIds.length == 1 ? '1 vehicle selected' : '${_vehicleIds.length} vehicles selected',
+      );
+    }
+    if (_includeExpenses && _categories.isNotEmpty) {
+      parts.add(
+        _categories.length == 1
+            ? '${expenseCategoryLabel(_categories.first)} category'
+            : '${_categories.length} categories',
+      );
+    }
+    if (_startDate != null || _endDate != null) {
+      final from = _startDate == null ? 'Any' : _formatDate(_startDate!);
+      final to = _endDate == null ? 'Any' : _formatDate(_endDate!);
+      parts.add('$from - $to');
+    }
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Export started. Your file will be ready shortly.'),
+      SnackBar(
+        content: Text(
+          parts.isEmpty
+              ? 'Export started. Your file will be ready shortly.'
+              : 'Export started for ${parts.join(' • ')}.',
+        ),
       ),
     );
+  }
+
+  void _resetFilters() {
+    setState(() {
+      _vehicleIds.clear();
+      _categories.clear();
+      _startDate = null;
+      _endDate = null;
+    });
+  }
+
+  Future<void> _pickStartDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate ?? _endDate ?? now,
+      firstDate: DateTime(now.year - 10),
+      lastDate: DateTime(now.year + 1),
+    );
+    if (picked == null) return;
+    setState(() {
+      _startDate = picked;
+      if (_endDate != null && _endDate!.isBefore(picked)) {
+        _endDate = picked;
+      }
+    });
+  }
+
+  Future<void> _pickEndDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate ?? _startDate ?? now,
+      firstDate: DateTime(now.year - 10),
+      lastDate: DateTime(now.year + 1),
+    );
+    if (picked == null) return;
+    setState(() {
+      _endDate = picked;
+      if (_startDate != null && _startDate!.isAfter(picked)) {
+        _startDate = picked;
+      }
+    });
+  }
+
+  void _setLastDays(int days) {
+    final now = DateTime.now();
+    setState(() {
+      _endDate = DateTime(now.year, now.month, now.day);
+      _startDate = _endDate!.subtract(Duration(days: days - 1));
+    });
+  }
+
+  void _setThisYear() {
+    final now = DateTime.now();
+    setState(() {
+      _startDate = DateTime(now.year, 1, 1);
+      _endDate = DateTime(now.year, now.month, now.day);
+    });
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}.'
+        '${date.month.toString().padLeft(2, '0')}.'
+        '${date.year}';
   }
 }
 
