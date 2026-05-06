@@ -67,6 +67,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _maintenanceRemindersEnabled = true;
   bool _developerLogsEnabled = false;
   bool _mockFailuresEnabled = false;
+  _AppLanguage _appLanguage = _AppLanguage.english;
+  _VoiceLanguage _voiceLanguage = _VoiceLanguage.romanian;
+  bool _analyticsConsentEnabled = true;
+  bool _crashReportsEnabled = true;
 
   @override
   Widget build(BuildContext context) {
@@ -115,6 +119,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 value: widget.fuelPriceCountry,
                 onChanged: widget.onFuelPriceCountryChanged,
               ),
+              _AppLanguageItem(
+                value: _appLanguage,
+                onChanged: (value) {
+                  setState(() => _appLanguage = value);
+                },
+              ),
+              _VoiceLanguageItem(
+                value: _voiceLanguage,
+                onChanged: (value) {
+                  setState(() => _voiceLanguage = value);
+                },
+              ),
               _MenuSwitchItem(
                 icon: LucideIcons.wrench,
                 label: 'Maintenance reminders',
@@ -123,6 +139,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 onChanged: (value) {
                   setState(() => _maintenanceRemindersEnabled = value);
                 },
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const _SectionTitle('Privacy'),
+          const SizedBox(height: 8),
+          _MenuGroup(
+            children: [
+              _MenuSwitchItem(
+                icon: LucideIcons.barChart3,
+                label: 'Usage analytics',
+                subtitle: 'Help improve suggestions and product quality',
+                value: _analyticsConsentEnabled,
+                onChanged: (value) {
+                  setState(() => _analyticsConsentEnabled = value);
+                },
+              ),
+              _MenuSwitchItem(
+                icon: LucideIcons.shieldAlert,
+                label: 'Crash reports',
+                subtitle: 'Send diagnostics when the app hits an error',
+                value: _crashReportsEnabled,
+                onChanged: (value) {
+                  setState(() => _crashReportsEnabled = value);
+                },
+              ),
+              _MenuItem(
+                icon: LucideIcons.fileText,
+                label: 'Terms and conditions',
+                subtitle: 'Read the rules for using CarLog',
+                onTap: () => _openLegalScreen(
+                  context,
+                  title: 'Terms and conditions',
+                  content: _termsAndConditionsText,
+                ),
+              ),
+              _MenuItem(
+                icon: LucideIcons.lock,
+                label: 'Privacy policy',
+                subtitle: 'See how vehicle and account data is handled',
+                onTap: () => _openLegalScreen(
+                  context,
+                  title: 'Privacy policy',
+                  content: _privacyPolicyText,
+                ),
+              ),
+              _MenuItem(
+                icon: LucideIcons.trash2,
+                label: 'Request data deletion',
+                subtitle: 'Start a deletion request for account data',
+                onTap: () => _openLegalScreen(
+                  context,
+                  title: 'Data deletion',
+                  content: _dataDeletionText,
+                ),
               ),
             ],
           ),
@@ -379,6 +450,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (context) => _ExportFlowScreen(vehicles: widget.vehicles),
+      ),
+    );
+  }
+
+  Future<void> _openLegalScreen(
+    BuildContext context, {
+    required String title,
+    required String content,
+  }) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (context) => _LegalDocumentScreen(
+          title: title,
+          content: content,
+        ),
       ),
     );
   }
@@ -1103,6 +1189,171 @@ class _ExportFlowScreenState extends State<_ExportFlowScreen> {
         '${date.year}';
   }
 }
+
+class _AppLanguageItem extends StatelessWidget {
+  const _AppLanguageItem({required this.value, required this.onChanged});
+
+  final _AppLanguage value;
+  final ValueChanged<_AppLanguage> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = Theme.of(context).textTheme.bodySmall?.color;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.languages, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('App language'),
+                const SizedBox(height: 2),
+                Text(
+                  'Choose the language used across the interface.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: muted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<_AppLanguage>(
+              value: value,
+              items: _AppLanguage.values
+                  .map(
+                    (language) => DropdownMenuItem(
+                      value: language,
+                      child: Text(language.label),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (next) {
+                if (next != null) {
+                  onChanged(next);
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VoiceLanguageItem extends StatelessWidget {
+  const _VoiceLanguageItem({required this.value, required this.onChanged});
+
+  final _VoiceLanguage value;
+  final ValueChanged<_VoiceLanguage> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = Theme.of(context).textTheme.bodySmall?.color;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          const Icon(LucideIcons.mic2, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Voice language'),
+                const SizedBox(height: 2),
+                Text(
+                  'Used by voice capture and speech understanding.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: muted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<_VoiceLanguage>(
+              value: value,
+              items: _VoiceLanguage.values
+                  .map(
+                    (language) => DropdownMenuItem(
+                      value: language,
+                      child: Text(language.label),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (next) {
+                if (next != null) {
+                  onChanged(next);
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegalDocumentScreen extends StatelessWidget {
+  const _LegalDocumentScreen({
+    required this.title,
+    required this.content,
+  });
+
+  final String title;
+  final String content;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: SparkTopBar(title: Text(title)),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          child: Text(
+            content,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+enum _AppLanguage { english, romanian, russian }
+
+extension on _AppLanguage {
+  String get label => switch (this) {
+    _AppLanguage.english => 'English',
+    _AppLanguage.romanian => 'Romanian',
+    _AppLanguage.russian => 'Russian',
+  };
+}
+
+enum _VoiceLanguage { romanian, english, russian }
+
+extension on _VoiceLanguage {
+  String get label => switch (this) {
+    _VoiceLanguage.romanian => 'Romanian',
+    _VoiceLanguage.english => 'English',
+    _VoiceLanguage.russian => 'Russian',
+  };
+}
+
+const String _termsAndConditionsText =
+    'CarLog is provided for personal and business vehicle tracking. By using the app, you agree to use imported data, reminders, and smart parsing features responsibly. You remain responsible for verifying financial records, service details, and any shared fleet data before acting on them. CarLog may offer estimates and automated suggestions, but these do not replace official invoices, service documents, or legal advice.\n\nShared vehicle access should only be granted to trusted members. Account holders are responsible for keeping access credentials secure and for reviewing any data imported into the app. Demo and prototype flows may include simulated outputs for presentation purposes.';
+
+const String _privacyPolicyText =
+    'CarLog can store vehicle details, expenses, reminders, uploaded file names, and optional smart-input context in order to power dashboards, reminders, and import flows. Voice and image-assisted features may use temporary processing to extract text or intent from user input. Privacy-related settings such as analytics and crash reports allow you to control whether diagnostic information is shared.\n\nShared vehicles may expose selected vehicle records, expenses, and reminders to invited members. You should only share vehicles with people who are authorized to view that information. Always review imported or generated data before relying on it for accounting or compliance purposes.';
+
+const String _dataDeletionText =
+    'You can request deletion of your CarLog account data, imported records, and shared-vehicle access data. Before deleting, export any information you need to keep. Deletion requests should include the account email and, when relevant, the vehicle or fleet identifiers you want removed. Shared vehicle data may also need to be removed from connected members depending on ownership and access status.';
 
 
 class _ExportToggleRow extends StatelessWidget {
