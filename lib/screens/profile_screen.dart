@@ -1159,6 +1159,13 @@ class _ImportFlowScreenState extends State<_ImportFlowScreen> {
   bool _importComplete = false;
   int? _importedEntriesCount;
   final List<_ImportFile> _selectedFiles = <_ImportFile>[];
+  final TextEditingController _inputDataController = TextEditingController();
+
+  @override
+  void dispose() {
+    _inputDataController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1197,6 +1204,7 @@ class _ImportFlowScreenState extends State<_ImportFlowScreen> {
     if (_stepIndex == 1) {
       return _ImportUploadStep(
         files: _selectedFiles,
+        inputDataController: _inputDataController,
         onPickFiles: _pickFiles,
         onClearFiles: _clearFiles,
         onRemoveFileAt: _removeFileAt,
@@ -1461,12 +1469,14 @@ class _ImportPrerequisiteStep extends StatelessWidget {
 class _ImportUploadStep extends StatelessWidget {
   const _ImportUploadStep({
     required this.files,
+    required this.inputDataController,
     required this.onPickFiles,
     required this.onClearFiles,
     required this.onRemoveFileAt,
   });
 
   final List<_ImportFile> files;
+  final TextEditingController inputDataController;
   final Future<void> Function() onPickFiles;
   final VoidCallback onClearFiles;
   final ValueChanged<int> onRemoveFileAt;
@@ -1491,6 +1501,17 @@ class _ImportUploadStep extends StatelessWidget {
           Text(
             'Accepted formats: CSV, XLSX, XLS, PDF, JPG, JPEG, PNG, HEIC, TXT, ZIP and more.',
             style: Theme.of(context).textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: inputDataController,
+            minLines: 2,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: 'Input more context (optional)',
+              hintText:
+                  'Add context to help the system understand the files, for example: service history export, fuel receipts, insurance documents, prioritize mileage and reminders.',
+            ),
           ),
           const SizedBox(height: 14),
           Container(
