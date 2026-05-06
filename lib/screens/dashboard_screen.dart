@@ -38,6 +38,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   _DashboardFilters _filters = const _DashboardFilters();
+  _ProjectionHorizon _projectionHorizon = _ProjectionHorizon.next30Days;
   final FuelPriceService _fuelPriceService = FuelPriceService();
   int _touchedPieIndex = -1;
   int _touchedMonthlyTrendIndex = -1;
@@ -184,22 +185,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     future: _fuelPriceFuture,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const _AnalyticsLoadingCard(
-                          title: 'Fuel cost trend',
+                        return const Column(
+                          children: [
+                            _AnalyticsLoadingCard(title: 'Fuel cost trend'),
+                            SizedBox(height: 12),
+                            _AnalyticsLoadingCard(title: 'Projected spending'),
+                          ],
                         );
                       }
                       if (snapshot.hasError || !snapshot.hasData) {
-                        return const _EmptyAnalyticsCard(
-                          title: 'Fuel cost trend',
-                          message: 'Fuel market data is unavailable right now.',
+                        return const Column(
+                          children: [
+                            _EmptyAnalyticsCard(
+                              title: 'Fuel cost trend',
+                              message: 'Fuel market data is unavailable right now.',
+                            ),
+                            SizedBox(height: 12),
+                            _EmptyAnalyticsCard(
+                              title: 'Projected spending',
+                              message: 'Spending estimate is unavailable right now.',
+                            ),
+                          ],
                         );
                       }
 
-                      return _FuelCostTrendCard(
-                        prices: snapshot.data!,
-                        expenses: filteredExpenses,
-                        vehicles: widget.vehicles,
-                        now: now,
+                      return Column(
+                        children: [
+                          _FuelCostTrendCard(
+                            prices: snapshot.data!,
+                            expenses: filteredExpenses,
+                            vehicles: widget.vehicles,
+                            now: now,
+                          ),
+                          const SizedBox(height: 12),
+                          _ProjectedSpendingCard(
+                            prices: snapshot.data!,
+                            expenses: filteredExpenses,
+                            reminders: filteredReminders,
+                            vehicles: widget.vehicles,
+                            horizon: _projectionHorizon,
+                            onHorizonChanged: (horizon) {
+                              setState(() => _projectionHorizon = horizon);
+                            },
+                            now: now,
+                          ),
+                        ],
                       );
                     },
                   ),
@@ -800,6 +830,299 @@ class _FuelCostTrendCard extends StatelessWidget {
       ),
     );
   }
+}
+
+enum _ProjectionHorizon { next30Days, next3Months, next12Months }
+
+extension on _ProjectionHorizon {
+  String get chipLabel => switch (this) {
+    _ProjectionHorizon.next30Days => '30D',
+    _ProjectionHorizon.next3Months => '3M',
+    _ProjectionHorizon.next12Months => '12M',
+  };
+
+  String get titleLabel => switch (this) {
+    _ProjectionHorizon.next30Days => 'Next 30 days',
+    _ProjectionHorizon.next3Months => 'Next 3 months',
+    _ProjectionHorizon.next12Months => 'Next 12 months',
+  };
+
+  int get horizonDays => switch (this) {
+    _ProjectionHorizon.next30Days => 30,
+    _ProjectionHorizon.next3Months => 90,
+    _ProjectionHorizon.next12Months => 365,
+  };
+}
+
+class _ProjectedSpendingCard extends StatelessWidget {
+  const _ProjectedSpendingCard({
+    required this.prices,
+    required this.expenses,
+    required this.reminders,
+    required this.vehicles,
+    required this.horizon,
+    required this.onHorizonChanged,
+    required this.now,
+  });
+
+  final FuelPriceSnapshot prices;
+  final List<CarExpense> expenses;
+  final List<MaintenanceReminder> reminders;
+  final List<Vehicle> vehicles;
+  final _ProjectionHorizon horizon;
+  final ValueChanged<_ProjectionHorizon> onHorizonChanged;
+  final DateTime now;
+
+  @override
+  Widget build(BuildContext context) {
+    final estimate = _buildProjectedSpendingEstimate(
+      prices: prices,
+      expenses: expenses,
+      reminders: reminders,
+      vehicles: vehicles,
+      horizon: horizon,
+      now: now,
+    );
+
+    if (!estimate.hasEnoughHistory) {
+      return Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    'Projected spending',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const Spacer(),
+                  _ProjectionChips(
+                    selected: horizon,
+                    onChanged: onHorizonChanged,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Not enough history yet to estimate future spending.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Add a few expenses and reminders to see a forecast based on fuel history, recurring costs, and upcoming due items.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Projected spending',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        estimate.totalLabel,
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        estimate.horizon.titleLabel,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                _ProjectionChips(
+                  selected: horizon,
+                  onChanged: onHorizonChanged,
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Based on recent fuel spend, recurring vehicle costs, reminder due dates, and recent service history.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 14),
+            _EstimateBreakdownRow(
+              label: 'Fuel trend',
+              amountLabel: estimate.fuelLabel,
+              detail:
+                  '${estimate.fuelEntries} fuel entries and current fuel price trend',
+            ),
+            _EstimateBreakdownRow(
+              label: 'Upcoming reminders',
+              amountLabel: estimate.reminderLabel,
+              detail:
+                  '${estimate.includedReminders} due item${estimate.includedReminders == 1 ? '' : 's'} within this horizon',
+            ),
+            _EstimateBreakdownRow(
+              label: 'Recurring costs',
+              amountLabel: estimate.recurringLabel,
+              detail: 'Insurance and repeat annual costs spread into this period',
+            ),
+            _EstimateBreakdownRow(
+              label: 'Expected upkeep',
+              amountLabel: estimate.maintenanceBufferLabel,
+              detail: 'Weighted from recent non-fuel service and parts activity',
+              isLast: true,
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'Using ${estimate.historyWindowLabel} of history in the current dashboard scope.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProjectionChips extends StatelessWidget {
+  const _ProjectionChips({
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final _ProjectionHorizon selected;
+  final ValueChanged<_ProjectionHorizon> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      alignment: WrapAlignment.end,
+      children: _ProjectionHorizon.values.map((horizon) {
+        return ChoiceChip(
+          label: Text(horizon.chipLabel),
+          selected: selected == horizon,
+          onSelected: (_) => onChanged(horizon),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _EstimateBreakdownRow extends StatelessWidget {
+  const _EstimateBreakdownRow({
+    required this.label,
+    required this.amountLabel,
+    required this.detail,
+    this.isLast = false,
+  });
+
+  final String label;
+  final String amountLabel;
+  final String detail;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  detail,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            amountLabel,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProjectedSpendingEstimate {
+  const _ProjectedSpendingEstimate({
+    required this.horizon,
+    required this.currencyCode,
+    required this.total,
+    required this.fuelComponent,
+    required this.reminderComponent,
+    required this.recurringComponent,
+    required this.maintenanceBuffer,
+    required this.fuelEntries,
+    required this.includedReminders,
+    required this.hasEnoughHistory,
+    required this.historyWindowLabel,
+  });
+
+  final _ProjectionHorizon horizon;
+  final String currencyCode;
+  final double total;
+  final double fuelComponent;
+  final double reminderComponent;
+  final double recurringComponent;
+  final double maintenanceBuffer;
+  final int fuelEntries;
+  final int includedReminders;
+  final bool hasEnoughHistory;
+  final String historyWindowLabel;
+
+  String get totalLabel => '${total.toStringAsFixed(0)} $currencyCode';
+  String get fuelLabel => '${fuelComponent.toStringAsFixed(0)} $currencyCode';
+  String get reminderLabel =>
+      '${reminderComponent.toStringAsFixed(0)} $currencyCode';
+  String get recurringLabel =>
+      '${recurringComponent.toStringAsFixed(0)} $currencyCode';
+  String get maintenanceBufferLabel =>
+      '${maintenanceBuffer.toStringAsFixed(0)} $currencyCode';
 }
 
 class _FuelPriceLine extends StatelessWidget {
@@ -1745,6 +2068,175 @@ List<_VehicleSpendTotal> _buildVehicleSpendTotals({
 
   items.sort((a, b) => b.amount.compareTo(a.amount));
   return items;
+}
+
+_ProjectedSpendingEstimate _buildProjectedSpendingEstimate({
+  required FuelPriceSnapshot prices,
+  required List<CarExpense> expenses,
+  required List<MaintenanceReminder> reminders,
+  required List<Vehicle> vehicles,
+  required _ProjectionHorizon horizon,
+  required DateTime now,
+}) {
+  final historyCutoff = now.subtract(const Duration(days: 365));
+  final historyExpenses = expenses
+      .where((expense) => !expense.date.isBefore(historyCutoff))
+      .toList();
+  final fuelExpenses = historyExpenses
+      .where((expense) => expense.category == ExpenseCategory.fuel)
+      .toList();
+  final recurringExpenses = expenses
+      .where(
+        (expense) =>
+            expense.category == ExpenseCategory.insurance &&
+            !expense.date.isBefore(now.subtract(const Duration(days: 365))),
+      )
+      .toList();
+  final maintenanceExpenses = historyExpenses
+      .where(
+        (expense) =>
+            expense.category == ExpenseCategory.service ||
+            expense.category == ExpenseCategory.parts ||
+            expense.category == ExpenseCategory.other,
+      )
+      .toList();
+
+  final horizonEnd = now.add(Duration(days: horizon.horizonDays));
+  final dueReminders = reminders.where((reminder) {
+    if (reminder.dueDate != null) {
+      return !reminder.dueDate!.isAfter(horizonEnd);
+    }
+    if (reminder.dueMileage != null) {
+      final vehicle = vehicles
+          .where((item) => item.id == reminder.vehicleId)
+          .firstOrNull;
+      if (vehicle == null) {
+        return false;
+      }
+      final estimatedMileageAtHorizon =
+          vehicle.mileage +
+          ((_averageMonthlyDistanceForVehicle(
+                        vehicleId: vehicle.id,
+                        expenses: expenses,
+                      ) /
+                      30) *
+                  horizon.horizonDays)
+              .round();
+      return estimatedMileageAtHorizon >= reminder.dueMileage!;
+    }
+    return false;
+  }).toList();
+
+  final hasEnoughHistory =
+      historyExpenses.length >= 3 ||
+      fuelExpenses.length >= 2 ||
+      dueReminders.isNotEmpty;
+  final fuelInsight = _buildFuelCostInsight(
+    prices: prices,
+    expenses: expenses,
+    vehicles: vehicles,
+    now: now,
+  );
+
+  if (!hasEnoughHistory) {
+    return _ProjectedSpendingEstimate(
+      horizon: horizon,
+      currencyCode: prices.currencyCode,
+      total: 0,
+      fuelComponent: 0,
+      reminderComponent: 0,
+      recurringComponent: 0,
+      maintenanceBuffer: 0,
+      fuelEntries: fuelExpenses.length,
+      includedReminders: dueReminders.length,
+      hasEnoughHistory: false,
+      historyWindowLabel: '12 months',
+    );
+  }
+
+  final base30DayFuelProjection = fuelInsight.projectedCost;
+  final fuelComponent =
+      base30DayFuelProjection * (horizon.horizonDays / 30.0);
+
+  final reminderComponent = dueReminders.fold<double>(
+    0,
+    (sum, reminder) => sum + _estimatedReminderCost(reminder),
+  );
+
+  final recurringAnnualTotal = recurringExpenses.fold<double>(
+    0,
+    (sum, expense) => sum + expense.amount,
+  );
+  final recurringComponent =
+      recurringAnnualTotal * (horizon.horizonDays / 365.0);
+
+  final maintenanceSixMonthTotal = maintenanceExpenses.fold<double>(
+    0,
+    (sum, expense) => sum + expense.amount,
+  );
+  final maintenanceBuffer =
+      (maintenanceSixMonthTotal / 6.0) *
+      (horizon.horizonDays / 30.0) *
+      0.35;
+
+  final total = fuelComponent +
+      reminderComponent +
+      recurringComponent +
+      maintenanceBuffer;
+
+  return _ProjectedSpendingEstimate(
+    horizon: horizon,
+    currencyCode: prices.currencyCode,
+    total: total,
+    fuelComponent: fuelComponent,
+    reminderComponent: reminderComponent,
+    recurringComponent: recurringComponent,
+    maintenanceBuffer: maintenanceBuffer,
+    fuelEntries: fuelInsight.trackedExpenses,
+    includedReminders: dueReminders.length,
+    hasEnoughHistory: true,
+    historyWindowLabel: '12 months',
+  );
+}
+
+double _estimatedReminderCost(MaintenanceReminder reminder) {
+  final normalized = '${reminder.title} ${reminder.description}'
+      .toLowerCase()
+      .trim();
+  if (normalized.contains('insurance') || normalized.contains('rca')) {
+    return 1800;
+  }
+  if (normalized.contains('itp') || normalized.contains('inspection')) {
+    return 700;
+  }
+  if (normalized.contains('oil')) {
+    return 1600;
+  }
+  if (normalized.contains('tire') || normalized.contains('tyre')) {
+    return 1200;
+  }
+  if (normalized.contains('hybrid')) {
+    return 1500;
+  }
+  return 900;
+}
+
+double _averageMonthlyDistanceForVehicle({
+  required String vehicleId,
+  required List<CarExpense> expenses,
+}) {
+  final vehicleExpenses = expenses
+      .where((expense) => expense.vehicleId == vehicleId)
+      .toList()
+    ..sort((a, b) => a.date.compareTo(b.date));
+  if (vehicleExpenses.length < 2) {
+    return 0;
+  }
+  final first = vehicleExpenses.first;
+  final last = vehicleExpenses.last;
+  final mileageDelta = math.max(0, last.mileage - first.mileage).toDouble();
+  final dayDelta = math.max(30, last.date.difference(first.date).inDays);
+  return mileageDelta / dayDelta * 30;
 }
 
 Future<List<_VehicleFuelEconomy>> _buildFuelEconomyTotals({
