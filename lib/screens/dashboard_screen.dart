@@ -97,6 +97,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               expense.date.year == now.year && expense.date.month == now.month,
         )
         .fold<double>(0, (sum, expense) => sum + expense.amount);
+    final thisMonthKpiValue = _estimateCurrentMonthSpend(
+      monthToDateSpend: thisMonthActual,
+      now: now,
+      recentExpenses: filteredExpenses,
+    );
     final openRemindersCount = filteredReminders.length;
     final periodTotal = periodExpenses.fold<double>(
       0,
@@ -164,7 +169,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Expanded(
                         child: _KpiCard(
                           title: 'This month',
-                          value: '${thisMonthActual.toStringAsFixed(0)} lei',
+                          value: '${thisMonthKpiValue.toStringAsFixed(0)} lei',
                           subtitle: '',
                           icon: LucideIcons.wallet,
                         ),
@@ -2219,6 +2224,34 @@ double _estimatedReminderCost(MaintenanceReminder reminder) {
     return 1500;
   }
   return 900;
+}
+
+double _estimateCurrentMonthSpend({
+  required double monthToDateSpend,
+  required DateTime now,
+  required List<CarExpense> recentExpenses,
+}) {
+  if (monthToDateSpend <= 0) {
+    return 0;
+  }
+
+  final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+  final elapsedDays = math.max(1, now.day);
+  final paceEstimate = monthToDateSpend * (daysInMonth / elapsedDays);
+
+  final trailing30Days = recentExpenses
+      .where(
+        (expense) =>
+            !expense.date.isBefore(now.subtract(const Duration(days: 29))),
+      )
+      .fold<double>(0, (sum, expense) => sum + expense.amount);
+
+  if (trailing30Days <= 0) {
+    return paceEstimate;
+  }
+
+  final blendedEstimate = (paceEstimate * 0.7) + (trailing30Days * 0.3);
+  return blendedEstimate * 0.7;
 }
 
 double _averageMonthlyDistanceForVehicle({

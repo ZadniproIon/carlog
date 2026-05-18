@@ -193,7 +193,7 @@ class _SharedOwnerBanner extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'This vehicle is shared with you by ${access.ownerName} (${access.ownerEmail}).',
+              'This vehicle is shared with you by Stela Zadnipro (stela.zadnipro@gmail.com).',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
