@@ -619,7 +619,7 @@ List<MaintenanceReminder> buildMockReminders() {
     ),
     MaintenanceReminder(
       id: 'm2',
-      title: 'ITP (Romanian inspection)',
+      title: 'ITP',
       description: 'Next technical inspection for Passat.',
       dueDate: today.add(const Duration(days: 6)),
       vehicleId: 'v1',

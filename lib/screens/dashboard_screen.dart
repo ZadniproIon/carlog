@@ -22,6 +22,7 @@ class DashboardScreen extends StatefulWidget {
     required this.fuelPriceCountry,
     required this.presentationDemoModeEnabled,
     required this.presentationImportCompleted,
+    required this.presentationInsightsLoading,
   });
 
   final List<Vehicle> vehicles;
@@ -31,6 +32,7 @@ class DashboardScreen extends StatefulWidget {
   final FuelPriceCountry fuelPriceCountry;
   final bool presentationDemoModeEnabled;
   final bool presentationImportCompleted;
+  final bool presentationInsightsLoading;
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -126,7 +128,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       body: widget.presentationDemoModeEnabled &&
               !widget.presentationImportCompleted
           ? const _PresentationDashboardEmptyState()
-          : Column(
+          : widget.presentationDemoModeEnabled &&
+                  widget.presentationInsightsLoading
+              ? const _PresentationDashboardInsightsState()
+              : Column(
         children: [
           if (_filters.hasActiveFilters)
             Container(
@@ -463,6 +468,47 @@ class _PresentationDashboardEmptyState extends StatelessWidget {
               'Add more activity to view statistics and dashboard insights.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PresentationDashboardInsightsState extends StatelessWidget {
+  const _PresentationDashboardInsightsState();
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = Theme.of(context).textTheme.bodyMedium?.color;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 34,
+              height: 34,
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'Analyzing imported data',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Building spending insights, estimating future costs, and generating smart reminders...',
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: muted),
             ),
           ],
         ),
@@ -1591,13 +1637,13 @@ class _FuelEconomyTrackingCard extends StatelessWidget {
     if (items.isEmpty) {
       return _EmptyAnalyticsCard(
         title: 'Fuel economy tracking',
-        message: 'Not enough fuel entries to estimate fuel economy for this period.',
+        message: 'Not enough entries to estimate efficiency for this period.',
       );
     }
 
     final visibleItems = items.take(4).toList();
     final maxEconomy = visibleItems
-        .map((item) => item.litersPer100Km)
+        .map((item) => item.visualValue)
         .reduce(math.max);
 
     return Card(
@@ -1638,7 +1684,7 @@ class _VehicleFuelEconomyRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fillRatio = maxEconomy <= 0 ? 0.0 : item.litersPer100Km / maxEconomy;
+    final fillRatio = maxEconomy <= 0 ? 0.0 : item.visualValue / maxEconomy;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1660,7 +1706,7 @@ class _VehicleFuelEconomyRow extends StatelessWidget {
               ),
             ),
             Text(
-              '${item.litersPer100Km.toStringAsFixed(1).replaceAll('.', ',')} L/100 km',
+              '${item.value.toStringAsFixed(1).replaceAll('.', ',')} ${item.unitLabel}',
               style: Theme.of(
                 context,
               ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
@@ -1680,7 +1726,7 @@ class _VehicleFuelEconomyRow extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'Based on ${item.fuelEntries} fuel entries over ${item.distanceKm.toStringAsFixed(0)} km',
+          'Based on ${item.entriesCount} ${item.entryLabel} over ${item.distanceKm.toStringAsFixed(0)} km',
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
@@ -1886,15 +1932,21 @@ class _VehicleSpendTotal {
 class _VehicleFuelEconomy {
   const _VehicleFuelEconomy({
     required this.vehicle,
-    required this.litersPer100Km,
+    required this.value,
+    required this.unitLabel,
     required this.distanceKm,
-    required this.fuelEntries,
+    required this.entriesCount,
+    required this.entryLabel,
+    required this.visualValue,
   });
 
   final Vehicle vehicle;
-  final double litersPer100Km;
+  final double value;
+  final String unitLabel;
   final double distanceKm;
-  final int fuelEntries;
+  final int entriesCount;
+  final String entryLabel;
+  final double visualValue;
 }
 
 class _FuelCostInsight {
@@ -2278,30 +2330,19 @@ Future<List<_VehicleFuelEconomy>> _buildFuelEconomyTotals({
   required Future<FuelPriceSnapshot> prices,
 }) async {
   final snapshot = await prices;
-  final fuelExpensesByVehicle = <String, List<CarExpense>>{};
   final vehicleById = {for (final vehicle in vehicles) vehicle.id: vehicle};
 
-  for (final expense in expenses) {
-    if (expense.category != ExpenseCategory.fuel) {
-      continue;
-    }
-    final vehicle = vehicleById[expense.vehicleId];
-    if (vehicle == null || !_supportsLiquidFuel(vehicle)) {
-      continue;
-    }
-    fuelExpensesByVehicle.putIfAbsent(expense.vehicleId, () => <CarExpense>[]).add(expense);
-  }
-
   final items = <_VehicleFuelEconomy>[];
-  for (final entry in fuelExpensesByVehicle.entries) {
-    final vehicle = vehicleById[entry.key];
-    if (vehicle == null) {
-      continue;
-    }
-
-    final vehicleExpenses = List<CarExpense>.from(entry.value)
+  for (final vehicle in vehicles) {
+    final vehicleExpenses = expenses
+        .where(
+          (expense) =>
+              expense.vehicleId == vehicle.id &&
+              expense.category == ExpenseCategory.fuel,
+        )
+        .toList()
       ..sort((a, b) => a.date.compareTo(b.date));
-    if (vehicleExpenses.length < 2) {
+    if (vehicleExpenses.length < 2 || !vehicleById.containsKey(vehicle.id)) {
       continue;
     }
 
@@ -2312,38 +2353,74 @@ Future<List<_VehicleFuelEconomy>> _buildFuelEconomyTotals({
       continue;
     }
 
-    final pricePerLiter = _priceForFuelType(
-      fuelType: vehicle.fuelType,
-      gasolinePrice: snapshot.gasolineCurrent,
-      dieselPrice: snapshot.dieselCurrent,
-    );
-    if (pricePerLiter <= 0) {
+    if (_supportsElectricEfficiencyTracking(vehicle)) {
+      final electricityPricePerKwh = _electricityPricePerKwh(snapshot);
+      if (electricityPricePerKwh <= 0) {
+        continue;
+      }
+
+      final totalKwh = vehicleExpenses.fold<double>(
+        0,
+        (sum, expense) => sum + (expense.amount / electricityPricePerKwh),
+      );
+      final kwhPer100Km = _tunedDemoElectricEfficiency(
+        vehicle,
+        totalKwh / distanceKm * 100,
+      );
+      if (!kwhPer100Km.isFinite || kwhPer100Km <= 0) {
+        continue;
+      }
+
+      items.add(
+        _VehicleFuelEconomy(
+          vehicle: vehicle,
+          value: kwhPer100Km,
+          unitLabel: 'kWh/100 km',
+          distanceKm: distanceKm,
+          entriesCount: vehicleExpenses.length,
+          entryLabel: 'charging entries',
+          visualValue: kwhPer100Km,
+        ),
+      );
       continue;
     }
 
-    final totalLiters = vehicleExpenses.fold<double>(
-      0,
-      (sum, expense) => sum + (expense.amount / pricePerLiter),
-    );
-    final litersPer100Km = _tunedDemoFuelEconomy(
-      vehicle,
-      totalLiters / distanceKm * 100,
-    );
-    if (!litersPer100Km.isFinite || litersPer100Km <= 0) {
-      continue;
-    }
+    if (_supportsLiquidFuel(vehicle)) {
+      final pricePerLiter = _priceForFuelType(
+        fuelType: vehicle.fuelType,
+        gasolinePrice: snapshot.gasolineCurrent,
+        dieselPrice: snapshot.dieselCurrent,
+      );
+      if (pricePerLiter <= 0) {
+        continue;
+      }
 
-    items.add(
-      _VehicleFuelEconomy(
-        vehicle: vehicle,
-        litersPer100Km: litersPer100Km,
-        distanceKm: distanceKm,
-        fuelEntries: vehicleExpenses.length,
-      ),
-    );
+      final totalLiters = vehicleExpenses.fold<double>(
+        0,
+        (sum, expense) => sum + (expense.amount / pricePerLiter),
+      );
+      final litersPer100Km = _tunedDemoFuelEconomy(
+        vehicle,
+        totalLiters / distanceKm * 100,
+      );
+      if (!litersPer100Km.isFinite || litersPer100Km <= 0) {
+        continue;
+      }
+
+      items.add(
+        _VehicleFuelEconomy(
+          vehicle: vehicle,
+          value: litersPer100Km,
+          unitLabel: 'L/100 km',
+          distanceKm: distanceKm,
+          entriesCount: vehicleExpenses.length,
+          entryLabel: 'fuel entries',
+          visualValue: litersPer100Km,
+        ),
+      );
+    }
   }
 
-  items.sort((a, b) => b.litersPer100Km.compareTo(a.litersPer100Km));
   return items;
 }
 
@@ -2357,6 +2434,17 @@ double _tunedDemoFuelEconomy(Vehicle vehicle, double rawValue) {
 
   if (brand.contains('porsche') && model.contains('cayenne')) {
     return rawValue.clamp(11.6, 12.8).toDouble();
+  }
+
+  return rawValue;
+}
+
+double _tunedDemoElectricEfficiency(Vehicle vehicle, double rawValue) {
+  final brand = vehicle.brand.toLowerCase();
+  final model = vehicle.model.toLowerCase();
+
+  if (brand.contains('tesla') && model.contains('model 3')) {
+    return rawValue.clamp(15.2, 16.8).toDouble();
   }
 
   return rawValue;
@@ -2387,6 +2475,28 @@ bool _supportsLiquidFuel(Vehicle vehicle) {
     case VehicleFuelType.hydrogen:
       return false;
   }
+}
+
+bool _supportsElectricEfficiencyTracking(Vehicle vehicle) {
+  switch (vehicle.fuelType) {
+    case VehicleFuelType.electric:
+      return true;
+    case VehicleFuelType.diesel:
+    case VehicleFuelType.gasoline:
+    case VehicleFuelType.lpg:
+    case VehicleFuelType.cng:
+    case VehicleFuelType.hybrid:
+    case VehicleFuelType.plugInHybrid:
+    case VehicleFuelType.hydrogen:
+      return false;
+  }
+}
+
+double _electricityPricePerKwh(FuelPriceSnapshot snapshot) {
+  if (snapshot.country == FuelPriceCountry.moldova) {
+    return 4.2;
+  }
+  return 0.32;
 }
 
 double _priceForFuelType({

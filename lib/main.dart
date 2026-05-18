@@ -510,6 +510,8 @@ class _HomeShellState extends State<HomeShell> {
   bool _presentationDemoModeEnabled = false;
   bool _fleetScreenshotDemoModeEnabled = false;
   bool _presentationImportCompleted = false;
+  bool _presentationDashboardInsightsLoading = false;
+  bool _presentationReminderNotificationsSent = false;
   DemoSharingRole _sharingRole = DemoSharingRole.owner;
   ExpenseCurrency _expenseCurrency = ExpenseCurrency.mdl;
   FuelPriceCountry _fuelPriceCountry = FuelPriceCountry.moldova;
@@ -660,6 +662,8 @@ class _HomeShellState extends State<HomeShell> {
     setState(() {
       _presentationDemoModeEnabled = enabled;
       _presentationImportCompleted = false;
+      _presentationDashboardInsightsLoading = false;
+      _presentationReminderNotificationsSent = false;
     });
 
     final prefs = await SharedPreferences.getInstance();
@@ -685,6 +689,8 @@ class _HomeShellState extends State<HomeShell> {
     }
     setState(() {
       _presentationImportCompleted = false;
+      _presentationDashboardInsightsLoading = false;
+      _presentationReminderNotificationsSent = false;
       _ownerVehicles = List<Vehicle>.from(mockVehicles);
       _ownerExpenses = <CarExpense>[];
       _ownerReminders = <MaintenanceReminder>[];
@@ -1688,15 +1694,36 @@ class _HomeShellState extends State<HomeShell> {
       _expenses = mergedExpenses;
       _reminders = buildMockReminders();
       _presentationImportCompleted = true;
+      _presentationDashboardInsightsLoading = false;
+      _presentationReminderNotificationsSent = false;
       _usingLocalData = true;
     });
 
-    unawaited(_pushPresentationReminderNotifications());
     return importedExpenses.length;
   }
 
-  Future<void> _pushPresentationReminderNotifications() async {
-    await Future<void>.delayed(const Duration(seconds: 3));
+  Future<void> _startPresentationDashboardInsightsFlow() async {
+    if (_presentationDashboardInsightsLoading ||
+        _presentationReminderNotificationsSent ||
+        !_presentationDemoModeEnabled ||
+        !_presentationImportCompleted) {
+      return;
+    }
+
+    setState(() {
+      _presentationDashboardInsightsLoading = true;
+    });
+
+    await Future<void>.delayed(const Duration(seconds: 2));
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _presentationDashboardInsightsLoading = false;
+      _presentationReminderNotificationsSent = true;
+    });
+
     await NotificationService.showReminderNotifications(
       reminders: _reminders,
       vehicles: _vehicles,
@@ -1798,6 +1825,7 @@ class _HomeShellState extends State<HomeShell> {
         fuelPriceCountry: _fuelPriceCountry,
         presentationDemoModeEnabled: _presentationDemoModeEnabled,
         presentationImportCompleted: _presentationImportCompleted,
+        presentationInsightsLoading: _presentationDashboardInsightsLoading,
       ),
       ExpensesScreen(
         expenses: _expenses,
@@ -1894,6 +1922,9 @@ class _HomeShellState extends State<HomeShell> {
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
           setState(() => _selectedIndex = index);
+          if (index == 0) {
+            unawaited(_startPresentationDashboardInsightsFlow());
+          }
         },
         destinations: const [
           NavigationDestination(
@@ -1927,6 +1958,11 @@ List<CarExpense> _buildPresentationImportExpenses({
   required ExpenseCurrency preferredCurrency,
 }) {
   final baseExpenses = mockExpenses
+      .where(
+        (expense) =>
+            expense.description.trim().toLowerCase() !=
+            'road vignette and washer fluid',
+      )
       .map((expense) => expense.copyWith(currency: preferredCurrency))
       .toList();
   final generated = <CarExpense>[];
