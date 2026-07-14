@@ -79,7 +79,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       period: _filters.period,
     );
     final fuelEconomyItems = _buildFuelEconomyTotals(
-      expenses: periodExpenses,
+      scopeExpenses: filteredExpenses,
       vehicles: widget.vehicles,
       prices: _fuelPriceFuture,
     );
@@ -174,7 +174,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Expanded(
                         child: _KpiCard(
                           title: 'This month',
-                          value: '${thisMonthKpiValue.toStringAsFixed(0)} lei',
+                          value: '${thisMonthKpiValue.toStringAsFixed(0)} MDL',
                           subtitle: '',
                           icon: LucideIcons.wallet,
                         ),
@@ -272,7 +272,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       }
                       return _FuelEconomyTrackingCard(
                         items: snapshot.data ?? const <_VehicleFuelEconomy>[],
-                        selectedPeriod: _filters.period,
                       );
                     },
                   ),
@@ -1308,7 +1307,7 @@ class _CategoryDistributionCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'Selected: ${expenseCategoryLabel(selectedEntry.key)} - '
-              '${selectedEntry.value.toStringAsFixed(0)} lei '
+              '${selectedEntry.value.toStringAsFixed(0)} MDL '
               '(${selectedPercent.toStringAsFixed(1)}%)',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
@@ -1447,10 +1446,10 @@ class _MonthlySpendingTrendCard extends StatelessWidget {
                     leftTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
-                        reservedSize: 50,
-                        interval: _leftAxisInterval(maxY),
+                        reservedSize: 58,
+                        interval: _leftAxisLabelInterval(maxY),
                         getTitlesWidget: (value, meta) {
-                          final interval = _leftAxisInterval(maxY);
+                          final interval = _leftAxisLabelInterval(maxY);
                           if (value == 0) {
                             return const SizedBox.shrink();
                           }
@@ -1514,7 +1513,7 @@ class _MonthlySpendingTrendCard extends StatelessWidget {
                           final point = points[spot.x.toInt()];
                           return LineTooltipItem(
                             '${_formatMonthLong(point.month)}\n'
-                            '${point.amount.toStringAsFixed(0)} lei',
+                            '${point.amount.toStringAsFixed(0)} MDL',
                             TextStyle(
                               color: Theme.of(
                                 context,
@@ -1562,7 +1561,7 @@ class _MonthlySpendingTrendCard extends StatelessWidget {
               selectedPoint == null
                   ? 'Tap the line to inspect a month.'
                   : '${_formatMonthLong(selectedPoint.month)}: '
-                        '${selectedPoint.amount.toStringAsFixed(0)} lei',
+                        '${selectedPoint.amount.toStringAsFixed(0)} MDL',
               style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
@@ -1626,11 +1625,9 @@ class _TopSpendingVehiclesCard extends StatelessWidget {
 class _FuelEconomyTrackingCard extends StatelessWidget {
   const _FuelEconomyTrackingCard({
     required this.items,
-    required this.selectedPeriod,
   });
 
   final List<_VehicleFuelEconomy> items;
-  final _CategoryPeriod selectedPeriod;
 
   @override
   Widget build(BuildContext context) {
@@ -1655,7 +1652,7 @@ class _FuelEconomyTrackingCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Fuel economy tracking (${selectedPeriod.titleLabel})',
+              'Fuel economy tracking',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 12),
@@ -1770,7 +1767,7 @@ class _VehicleSpendRow extends StatelessWidget {
               ),
             ),
             Text(
-              '${item.amount.toStringAsFixed(0)} lei',
+              '${item.amount.toStringAsFixed(0)} MDL',
               style: Theme.of(
                 context,
               ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
@@ -2325,16 +2322,15 @@ double _averageMonthlyDistanceForVehicle({
 }
 
 Future<List<_VehicleFuelEconomy>> _buildFuelEconomyTotals({
-  required List<CarExpense> expenses,
+  required List<CarExpense> scopeExpenses,
   required List<Vehicle> vehicles,
   required Future<FuelPriceSnapshot> prices,
 }) async {
   final snapshot = await prices;
-  final vehicleById = {for (final vehicle in vehicles) vehicle.id: vehicle};
 
   final items = <_VehicleFuelEconomy>[];
   for (final vehicle in vehicles) {
-    final vehicleExpenses = expenses
+    final vehicleExpenses = scopeExpenses
         .where(
           (expense) =>
               expense.vehicleId == vehicle.id &&
@@ -2342,7 +2338,7 @@ Future<List<_VehicleFuelEconomy>> _buildFuelEconomyTotals({
         )
         .toList()
       ..sort((a, b) => a.date.compareTo(b.date));
-    if (vehicleExpenses.length < 2 || !vehicleById.containsKey(vehicle.id)) {
+    if (vehicleExpenses.length < 2) {
       continue;
     }
 
@@ -2421,6 +2417,14 @@ Future<List<_VehicleFuelEconomy>> _buildFuelEconomyTotals({
     }
   }
 
+  items.sort((a, b) {
+    final aElectric = a.unitLabel == 'kWh/100 km';
+    final bElectric = b.unitLabel == 'kWh/100 km';
+    if (aElectric != bElectric) {
+      return aElectric ? 1 : -1;
+    }
+    return b.visualValue.compareTo(a.visualValue);
+  });
   return items;
 }
 
@@ -2562,6 +2566,10 @@ double _leftAxisInterval(double maxY) {
     return 250;
   }
   return 500;
+}
+
+double _leftAxisLabelInterval(double maxY) {
+  return _leftAxisInterval(maxY) * 2;
 }
 
 bool _isWholeStep(double value) {
