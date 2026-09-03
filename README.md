@@ -1,63 +1,85 @@
+![CarLog Banner](banner_CarLog_1.png)
+
 # CarLog
 
 An AI-powered vehicle management and expense tracking mobile application built with Flutter.
 
 CarLog helps car owners and fleet managers track fuel, maintenance, recurring costs, and reminders with AI-assisted input, automated anomaly detection, and vehicle sharing. Designed with a clean mobile interface, offline-first reliability, and real-time cloud synchronization.
 
-Current app version: 1.0 (Demo).
+Current app version: 0.1.0 (Interactive Prototype / UI Demo).
 
-> Note: CarLog is currently a prototype and demo showcasing the mobile user experience, architecture, and AI-driven workflows. The application will be finalized and expanded into full production in the future. It operates in localcal mock mode by default for an instant out-of-the-box demo experience, with optional Firebase Mode for cloud synchronization.
+> Note: CarLog is currently an interactive UI/UX prototype and concept demonstration. While all interfaces, forms, charts, navigation flows, and mock engines are fully functional for demonstration purposes, live AI/OCR cloud integrations and production backends will be connected in future releases. It operates in local mock mode by default for an instant out-of-the-box demo experience, with optional Firebase mode for cloud synchronization.
 
 ---
 
 ## Screenshots
 
-### Dashboard & Cost Analytics
-| Overview & Projections | Category & Trend Charts | Fleet Spend & Activity |
+### Authentication & onboarding
+| Welcome & options | Sign in | Create account & password strength |
 |:---:|:---:|:---:|
-| <img src="screenshots/dashboard_1.jpg" width="260" alt="Dashboard Overview & Fuel Trend"/> | <img src="screenshots/dashboard_2.jpg" width="260" alt="Category Donut & 6-Month Trend"/> | <img src="screenshots/dashboard_3.jpg" width="260" alt="Vehicle Breakdown & Activity"/> |
+| <img src="screenshots/auth_1.jpg" width="260" alt="Welcome & Authentication Options"/> | <img src="screenshots/auth_2.jpg" width="260" alt="Sign In Screen"/> | <img src="screenshots/auth_3.jpg" width="260" alt="Create Account with Password Strength"/> |
 
-### Garage & AI Mechanic Insights
-| Add Vehicle | Vehicle Specs & AI Insights | Multi-Vehicle Garage |
+### Garage & AI Insights
+| Add vehicle | Vehicle specs & AI Insights | Costs, maintenance & history |
 |:---:|:---:|:---:|
 | <img src="screenshots/vehicle_1.jpg" width="260" alt="Add Vehicle Screen"/> | <img src="screenshots/vehicle_2.jpg" width="260" alt="Vehicle Detail with AI Overview"/> | <img src="screenshots/vehicle_3.jpg" width="260" alt="Garage Fleet List"/> |
 
-### Multi-Powertrain Support (ICE, EV, Hybrid)
-| Diesel / TDI (Passat) | Electric / EV (Tesla Model 3) | Hybrid (Porsche Cayenne) |
+### Vehicle identification & special tags
+| Set special tag | Fleet list with tags | Filter by tagged vehicle |
 |:---:|:---:|:---:|
-| <img src="screenshots/vehicle_special_tag_1.jpg" width="260" alt="Diesel Vehicle Card"/> | <img src="screenshots/vehicle_special_tag_2.jpg" width="260" alt="EV Electric Vehicle Card"/> | <img src="screenshots/vehicle_special_tag_3.jpg" width="260" alt="Hybrid Vehicle Card"/> |
+| <img src="screenshots/vehicle_special_tag_1.jpg" width="260" alt="Special Tag Input Field"/> | <img src="screenshots/vehicle_special_tag_2.jpg" width="260" alt="Vehicles List with License Plate Tags"/> | <img src="screenshots/vehicle_special_tag_3.jpg" width="260" alt="Filtering by Tagged Vehicle"/> |
 
-### Smart Expense Input (Voice, Camera & Manual)
-| Voice Dictation | Camera Receipt Scanner | Filterable Ledger |
+### Vehicle sharing & collaboration
+| Add with code | Shared vehicle attribution | Manage sharing & members |
 |:---:|:---:|:---:|
-| <img src="screenshots/expense_voice_2.jpg" width="260" alt="Voice Dictation Recording"/> | <img src="screenshots/expense_camera_1.jpg" width="260" alt="Receipt OCR Scanner"/> | <img src="screenshots/expense_screen_1.jpg" width="260" alt="Expense Ledger"/> |
+| <img src="screenshots/vehicle_share_1.jpg" width="260" alt="Join Vehicle with Code"/> | <img src="screenshots/vehicle_share_2.jpg" width="260" alt="Shared Vehicle Badge"/> | <img src="screenshots/vehicle_share_3.jpg" width="260" alt="Manage Sharing & Members"/> |
 
-### AI Anomaly & Fraud Detection
-| Odometer Rollback Warning | EV / Fuel Mismatch | Tank Capacity Overflow |
+### AI voice expense input
+| Expense mode selection | Voice dictation & waveform | AI-parsed expense review |
 |:---:|:---:|:---:|
-| <img src="screenshots/anomaly_detection_1.jpg" width="260" alt="Odometer Anomaly Alert"/> | <img src="screenshots/anomaly_detection_2.jpg" width="260" alt="Powertrain Anomaly Alert"/> | <img src="screenshots/anomaly_detection_3.jpg" width="260" alt="Tank Overflow Anomaly Alert"/> |
+| <img src="screenshots/expense_voice_1.jpg" width="260" alt="Choose Expense Mode"/> | <img src="screenshots/expense_voice_2.jpg" width="260" alt="Voice Dictation Recording"/> | <img src="screenshots/expense_voice_3.jpg" width="260" alt="AI-Parsed Expense Review"/> |
 
-### Maintenance & System Notifications
-| Upcoming Reminders | Add Custom Reminder | System Notification Tray |
+### AI receipt scanner & OCR
+| Camera receipt capture | OCR parsed invoice | Auto-filled expense review |
+|:---:|:---:|:---:|
+| <img src="screenshots/expense_camera_1.jpg" width="260" alt="Receipt OCR Scanner"/> | <img src="screenshots/expense_camera_2.jpg" width="260" alt="OCR Parsed Invoice"/> | <img src="screenshots/expense_camera_3.jpg" width="260" alt="Auto-filled Expense Review"/> |
+
+### Data import
+| Prerequisite check | Multi-format file upload | Import review & confirmation |
+|:---:|:---:|:---:|
+| <img src="screenshots/import_1.jpg" width="260" alt="Import Prerequisites"/> | <img src="screenshots/import_2.jpg" width="260" alt="Multi-format File Upload"/> | <img src="screenshots/import_3.jpg" width="260" alt="Import Review and Complete"/> |
+
+### Expense ledger & filters
+| Expense feed | Multi-criteria filters | Expense details & actions |
+|:---:|:---:|:---:|
+| <img src="screenshots/expense_screen_1.jpg" width="260" alt="Expense Ledger"/> | <img src="screenshots/expense_screen_2.jpg" width="260" alt="Filter Expenses Modal"/> | <img src="screenshots/expense_screen_3.jpg" width="260" alt="Expense Details and Actions"/> |
+
+### Dashboard & cost analytics
+| Overview & projections | Category & trend charts | Fleet spend & activity |
+|:---:|:---:|:---:|
+| <img src="screenshots/dashboard_1.jpg" width="260" alt="Dashboard Overview & Fuel Trend"/> | <img src="screenshots/dashboard_2.jpg" width="260" alt="Category Donut & 6-Month Trend"/> | <img src="screenshots/dashboard_3.jpg" width="260" alt="Vehicle Breakdown & Activity"/> |
+
+### Maintenance & system notifications
+| Upcoming reminders | Add custom reminder | System notification tray |
 |:---:|:---:|:---:|
 | <img src="screenshots/reminder_1.jpg" width="260" alt="Upcoming Reminders List"/> | <img src="screenshots/reminder_2.jpg" width="260" alt="Add Reminder Modal"/> | <img src="screenshots/reminder_3.jpg" width="260" alt="Android Lockscreen Notifications"/> |
 
-### Vehicle Sharing & Collaboration
-| Generate Invite Code | Shared Vehicle Attribution | Join Shared Vehicle |
+### AI anomaly & fraud detection
+| Odometer rollback warning | EV / fuel mismatch | Tank capacity overflow |
 |:---:|:---:|:---:|
-| <img src="screenshots/vehicle_share_1.jpg" width="260" alt="Share Vehicle Code"/> | <img src="screenshots/vehicle_share_2.jpg" width="260" alt="Shared Vehicle Badge"/> | <img src="screenshots/vehicle_share_3.jpg" width="260" alt="Join Vehicle Fleet"/> |
+| <img src="screenshots/anomaly_detection_1.jpg" width="260" alt="Odometer Anomaly Alert"/> | <img src="screenshots/anomaly_detection_2.jpg" width="260" alt="Powertrain Anomaly Alert"/> | <img src="screenshots/anomaly_detection_3.jpg" width="260" alt="Tank Overflow Anomaly Alert"/> |
 
-### Profile, Import & Data Export
-| Account & Theme Settings | Universal File Import | Backup & Data Export |
+### Profile & data export
+| Account & preferences | Privacy & settings | Data export & filters |
 |:---:|:---:|:---:|
-| <img src="screenshots/profile_and_export_1.jpg" width="260" alt="Profile Settings Screen"/> | <img src="screenshots/import_2.jpg" width="260" alt="File Import Workflow"/> | <img src="screenshots/profile_and_export_2.jpg" width="260" alt="Data Export & Privacy"/> |
+| <img src="screenshots/profile_and_export_1.jpg" width="260" alt="Profile Settings Screen"/> | <img src="screenshots/profile_and_export_2.jpg" width="260" alt="Privacy & Settings"/> | <img src="screenshots/profile_and_export_3.jpg" width="260" alt="Data Export & Privacy"/> |
 
 ---
 
 ## Tech Stack
 
 - Flutter & Dart – cross-platform mobile UI toolkit and application logic
-- AI & Reasoning Engine – natural language expense processing, receipt vision OCR, and anomaly detection
+- AI & Reasoning Engine – natural language voice dictation, receipt vision OCR, intelligent dashboard cost projections, proactive maintenance scheduling, vehicle reliability insights, and fraud/anomaly detection
 - Firebase Auth – email/password authentication, Google Sign-In, and guest access
 - Cloud Firestore – real-time cloud database with user-isolated security rules
 - FL Chart – interactive expense donuts, spline area graphs, and cost projections
