@@ -14,7 +14,7 @@ Current app version: 0.1.0 (Interactive Prototype / UI Demo).
 
 ## Demo video
 
-🎬 [Watch full mobile walkthrough video (MP4)](screenshots/demo_video_compressed.mp4)
+https://github.com/user-attachments/assets/06b34f56-178f-4022-ba94-81762a2fbf86
 
 ---
 
