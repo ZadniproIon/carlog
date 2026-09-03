@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:lucide_icons/lucide_icons.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../widgets/spark_top_bar.dart';
 
@@ -481,7 +481,7 @@ class _AuthScreenState extends State<AuthScreen> {
       children.add(
         OutlinedButton.icon(
           onPressed: _isLoading ? null : _submitGoogleSignIn,
-          icon: const Icon(LucideIcons.chrome),
+          icon: const Icon(LucideIcons.globe),
           label: const Text('Continue with Google'),
         ),
       );
